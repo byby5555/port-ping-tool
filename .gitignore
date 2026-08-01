@@ -1,0 +1,31 @@
+## .NET / Visual Studio
+bin/
+obj/
+*.user
+*.suo
+.vs/
+*.userprefs
+*.lock.json
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+ARM/
+ARM64/
+[Bb]uild[Ll]og.*
+*.[Pp]ublish.xml
+*.pfx
+*.snupkg
+
+## Publish output
+publish/
+*.exe
+*.pdb
+!.github/workflows/build.yml
+
+## Rider
+.idea/
+
+## OS
+.DS_Store
+Thumbs.db

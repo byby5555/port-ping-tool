@@ -1,0 +1,86 @@
+name: build-and-release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Create a GitHub Release'
+        required: false
+        default: 'true'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore PortPingTool.csproj
+
+      - name: Publish (win-x64, single-file, self-contained)
+        run: >
+          dotnet publish PortPingTool.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/win-x64
+
+      - name: Publish (win-x86)
+        run: >
+          dotnet publish PortPingTool.csproj
+          -c Release
+          -r win-x86
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/win-x86
+
+      - name: Publish (win-arm64)
+        run: >
+          dotnet publish PortPingTool.csproj
+          -c Release
+          -r win-arm64
+          --self-contained true
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish/win-arm64
+
+      - name: Show sizes
+        shell: bash
+        run: |
+          echo "Build artifacts:"
+          ls -la publish/win-x64/PortPingTool.exe
+          ls -la publish/win-x86/PortPingTool.exe
+          ls -la publish/win-arm64/PortPingTool.exe
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: PortPingTool-windows
+          path: |
+            publish/win-x64/PortPingTool.exe
+            publish/win-x86/PortPingTool.exe
+            publish/win-arm64/PortPingTool.exe
+
+      - name: Create release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            publish/win-x64/PortPingTool.exe
+            publish/win-x86/PortPingTool.exe
+            publish/win-arm64/PortPingTool.exe
+          generate_release_notes: true
