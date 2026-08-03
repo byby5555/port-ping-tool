@@ -1,40 +1,39 @@
 using System.Collections.ObjectModel;
-using System.Net.NetworkInformation;
+using System.Net.Sockets;
 
 namespace PortPingTool.Services;
 
-public enum PingIntervalMode
-{
-    Standard1000,
-    Fast100,
-}
-
-public sealed class PingService : IDisposable
+/// <summary>
+/// TCP handshake "ping" — opens a TCP connection to a (host, port) target
+/// at a configurable interval, records latency / success / failure.
+/// Unlike ICMP, this CAN run at 1ms intervals because each iteration
+/// is just a system-level TCP connect (no kernel ICMP throttling).
+///
+/// Only useful for targets that have an open TCP port (e.g. 1.1.1.1:443).
+/// </summary>
+public sealed class TcpPingService : IDisposable
 {
     private CancellationTokenSource? _cts;
     private Task? _runner;
     private readonly object _lock = new();
 
-    public PingIntervalMode IntervalMode { get; set; } = PingIntervalMode.Standard1000;
     public int IntervalMs { get; set; } = 1000;
-
     public string Host { get; private set; } = "127.0.0.1";
+    public int Port { get; private set; } = 443;
     public bool IsRunning { get; private set; }
 
     public ObservableCollection<PingRecord> Results { get; } = new();
-
-    /// <summary>Subset of Results containing only failed (lost) packets, capped at 1000.</summary>
     public ObservableCollection<PingRecord> LostResults { get; } = new();
-
     public PingStatistics Stats { get; } = new();
 
     public event Action<PingRecord>? ResultArrived;
     public event Action<bool>? StateChanged;
 
-    public async Task StartAsync(string host, int? count = null)
+    public async Task StartAsync(string host, int port, int? count = null)
     {
         if (IsRunning) return;
         Host = host;
+        Port = port;
         ResetStats();
 
         _cts = new CancellationTokenSource();
@@ -74,39 +73,58 @@ public sealed class PingService : IDisposable
         catch { /* swallow */ }
         _cts = null;
         IsRunning = false;
-        // Note: do NOT clear results here — the user wants to see stats
-        // after stopping. Results are cleared on the next Start.
+        // Note: do NOT clear results here — user wants to see stats after stop.
+        // Results are cleared on the next Start.
         StateChanged?.Invoke(false);
     }
 
     private async Task<PingRecord> SendOneAsync(CancellationToken ct)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            using var ping = new Ping();
-            var reply = await ping.SendPingAsync(Host, 2000).ConfigureAwait(false);
+            using var client = new TcpClient();
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            // Hard upper bound for the connect attempt; 5s is plenty.
+            linkedCts.CancelAfter(5000);
+            await client.ConnectAsync(Host, Port, linkedCts.Token).ConfigureAwait(false);
+            sw.Stop();
             return new PingRecord
             {
                 Seq = Stats.Sent + 1,
                 Timestamp = DateTime.Now,
-                Success = reply.Status == IPStatus.Success,
-                LatencyMs = reply.Status == IPStatus.Success ? (long)reply.RoundtripTime : 0,
-                Status = reply.Status.ToString(),
+                Success = true,
+                LatencyMs = sw.ElapsedMilliseconds,
+                Status = "Connected",
             };
         }
-        catch (PingException ex)
+        catch (OperationCanceledException)
         {
+            sw.Stop();
             return new PingRecord
             {
                 Seq = Stats.Sent + 1,
                 Timestamp = DateTime.Now,
                 Success = false,
                 LatencyMs = 0,
-                Status = ex.InnerException?.Message ?? ex.Message,
+                Status = "TimedOut",
+            };
+        }
+        catch (SocketException ex)
+        {
+            sw.Stop();
+            return new PingRecord
+            {
+                Seq = Stats.Sent + 1,
+                Timestamp = DateTime.Now,
+                Success = false,
+                LatencyMs = 0,
+                Status = ex.SocketErrorCode.ToString(),
             };
         }
         catch (Exception ex)
         {
+            sw.Stop();
             return new PingRecord
             {
                 Seq = Stats.Sent + 1,
@@ -148,40 +166,4 @@ public sealed class PingService : IDisposable
     }
 
     public void Dispose() => Stop();
-}
-
-public sealed class PingRecord
-{
-    public int Seq { get; init; }
-    public DateTime Timestamp { get; init; }
-    public bool Success { get; init; }
-    public long LatencyMs { get; init; }
-    public string Status { get; init; } = string.Empty;
-
-    public string TimeDisplay => Timestamp.ToString("HH:mm:ss.fff");
-    public string Display => Success
-        ? $"[{TimeDisplay}] seq={Seq}  time={LatencyMs} ms"
-        : $"[{TimeDisplay}] seq={Seq}  *  timeout ({Status})";
-
-    // For XAML: pick color based on success
-    public string RowColor => Success ? "#6E6E73" : "#FF3B30";
-}
-
-public sealed class PingStatistics
-{
-    public int Sent { get; internal set; }
-    public int Received { get; internal set; }
-    public int Lost { get; internal set; }
-    public long MinLatency { get; internal set; }
-    public long MaxLatency { get; internal set; }
-    public long SumLatency { get; internal set; }
-
-    public double LossRate => Sent == 0 ? 0 : (double)Lost / Sent * 100.0;
-    public double AvgLatency => Received == 0 ? 0 : (double)SumLatency / Received;
-
-    public void Reset()
-    {
-        Sent = Received = Lost = 0;
-        MinLatency = MaxLatency = SumLatency = 0;
-    }
 }

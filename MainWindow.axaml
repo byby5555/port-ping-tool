@@ -246,6 +246,63 @@
             </StackPanel>
           </Border>
 
+          <!-- Local / remote port scanner card -->
+          <Border Classes="card" Margin="0,14,0,0">
+            <StackPanel>
+              <TextBlock Text="本机端口扫描" Classes="cardTitle"/>
+              <TextBlock Text="列出正在 LISTEN 的端口(及占用进程 PID)"
+                         Classes="caption" Margin="0,2,0,14"/>
+
+              <StackPanel Orientation="Horizontal">
+                <TextBlock Text="目标:" VerticalAlignment="Center" Margin="0,0,8,0"
+                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+                <TextBox x:Name="ScanTargetBox" Width="180" Text="127.0.0.1"
+                         ToolTip.Tip="本机用 127.0.0.1 或 0.0.0.0;远端填 IP"/>
+                <Button x:Name="ScanBtn" Classes="primary" Margin="8,0,0,0"
+                        Content="扫描" Click="OnScanClick"/>
+                <TextBlock x:Name="ScanStatusText" Margin="14,0,0,0"
+                           VerticalAlignment="Center" FontSize="12"
+                           Foreground="{StaticResource TextTertiary}"/>
+              </StackPanel>
+
+              <Border Classes="subcard" Margin="0,12,0,0" Padding="0">
+                <ScrollViewer MaxHeight="240" VerticalScrollBarVisibility="Auto">
+                  <ItemsControl x:Name="ScanResults" Padding="0,4">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="svc:LocalPortRow">
+                        <Grid Margin="10,4">
+                          <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="50"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="80"/>
+                            <ColumnDefinition Width="60"/>
+                          </Grid.ColumnDefinitions>
+                          <TextBlock Grid.Column="0" Text="{Binding LocalPort}"
+                                     FontFamily="Cascadia Mono, Consolas"
+                                     FontSize="12" FontWeight="SemiBold"
+                                     Foreground="{StaticResource Accent}"/>
+                          <TextBlock Grid.Column="1" Text="{Binding DisplayAddress}"
+                                     FontFamily="Cascadia Mono, Consolas"
+                                     FontSize="11" Margin="10,0,0,0"
+                                     Foreground="{StaticResource TextSecondary}"/>
+                          <TextBlock Grid.Column="2" Text="{Binding DisplayState}"
+                                     FontFamily="Cascadia Mono, Consolas"
+                                     FontSize="11"
+                                     Foreground="{StaticResource Success}"/>
+                          <TextBlock Grid.Column="3" Text="{Binding DisplayPid}"
+                                     FontFamily="Cascadia Mono, Consolas"
+                                     FontSize="11" Margin="0,0,10,0"
+                                     HorizontalAlignment="Right"
+                                     Foreground="{StaticResource TextTertiary}"/>
+                        </Grid>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </Border>
+            </StackPanel>
+          </Border>
+
         </StackPanel>
       </ScrollViewer>
     </Grid>
@@ -269,35 +326,63 @@
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
           </Grid.RowDefinitions>
 
-          <Grid Grid.Row="0">
+          <!-- Protocol mode: ICMP or TCP handshake -->
+          <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <TextBlock Text="模式:" VerticalAlignment="Center" Margin="0,0,10,0"
+                       Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <RadioButton x:Name="ModeIcmp" Content="ICMP" GroupName="Mode"
+                         IsChecked="True"
+                         VerticalAlignment="Center" Margin="0,0,14,0"
+                         Checked="OnModeChanged"/>
+            <RadioButton x:Name="ModeTcp" Content="TCP 握手 (1ms 可行)"
+                         GroupName="Mode"
+                         VerticalAlignment="Center"
+                         Checked="OnModeChanged"/>
+          </StackPanel>
+
+          <Grid Grid.Row="1" Margin="0,10,0,0">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*"/>
               <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
             <TextBox x:Name="PingHostBox" Grid.Column="0" Text="1.1.1.1"/>
-            <Button Grid.Column="1" x:Name="PingToggleBtn" Margin="8,0,0,0"
+            <TextBox x:Name="PingPortBox" Grid.Column="1" Width="80" Margin="8,0,0,0"
+                     Text="443"
+                     ToolTip.Tip="仅 TCP 模式需要"
+                     IsEnabled="False"/>
+            <Button Grid.Column="2" x:Name="PingToggleBtn" Margin="8,0,0,0"
                     Classes="primary" Content="开始" Click="OnPingToggleClick"/>
           </Grid>
 
           <!-- Interval mode -->
-          <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,0">
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,14,0,0">
             <TextBlock Text="间隔:" VerticalAlignment="Center" Margin="0,0,10,0"
                        Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <RadioButton x:Name="Interval1" Content="1 ms"
+                         GroupName="Interval"
+                         VerticalAlignment="Center" Margin="0,0,10,0"
+                         Checked="OnIntervalChanged"/>
+            <RadioButton x:Name="Interval10" Content="10 ms"
+                         GroupName="Interval"
+                         VerticalAlignment="Center" Margin="0,0,10,0"
+                         Checked="OnIntervalChanged"/>
+            <RadioButton x:Name="Interval100" Content="100 ms"
+                         GroupName="Interval"
+                         VerticalAlignment="Center" Margin="0,0,10,0"
+                         Checked="OnIntervalChanged"/>
             <RadioButton x:Name="Interval1000" Content="1000 ms (标准)"
                          GroupName="Interval" IsChecked="True"
-                         VerticalAlignment="Center" Margin="0,0,14,0"
-                         Checked="OnIntervalChanged"/>
-            <RadioButton x:Name="Interval100" Content="100 ms (快)"
-                         GroupName="Interval"
                          VerticalAlignment="Center"
                          Checked="OnIntervalChanged"/>
           </StackPanel>
 
           <!-- Count mode -->
-          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,10,0,0">
             <TextBlock Text="次数:" VerticalAlignment="Center" Margin="0,0,10,0"
                        Foreground="{StaticResource TextSecondary}" FontSize="12"/>
             <RadioButton x:Name="CountContinuous" Content="持续"
@@ -310,7 +395,7 @@
           </StackPanel>
 
           <!-- Statistics panel -->
-          <Border Grid.Row="3" Classes="subcard" Margin="0,14,0,0" Padding="14,10">
+          <Border Grid.Row="4" Classes="subcard" Margin="0,14,0,0" Padding="14,10">
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
@@ -341,7 +426,7 @@
             </Grid>
           </Border>
 
-          <Grid Grid.Row="4" Margin="0,14,0,0">
+          <Grid Grid.Row="5" Margin="0,14,0,0">
             <Grid.RowDefinitions>
               <RowDefinition Height="Auto"/>
               <RowDefinition Height="*"/>
