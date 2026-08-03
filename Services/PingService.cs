@@ -5,16 +5,10 @@ namespace PortPingTool.Services;
 
 public enum PingIntervalMode
 {
-    /// <summary>1 ping per second.</summary>
     Standard1000,
-    /// <summary>10 pings per second.</summary>
     Fast100,
 }
 
-/// <summary>
-/// Runs ICMP ping on a background loop, supports continuous or fixed-count mode,
-/// configurable 100/1000ms interval, live result + summary statistics.
-/// </summary>
 public sealed class PingService : IDisposable
 {
     private CancellationTokenSource? _cts;
@@ -63,6 +57,7 @@ public sealed class PingService : IDisposable
             IsRunning = false;
             StateChanged?.Invoke(false);
         }, token);
+        await Task.CompletedTask;
     }
 
     public void Stop()
@@ -160,6 +155,9 @@ public sealed class PingRecord
     public string Display => Success
         ? $"[{TimeDisplay}] seq={Seq}  time={LatencyMs} ms"
         : $"[{TimeDisplay}] seq={Seq}  *  timeout ({Status})";
+
+    // For XAML: pick color based on success
+    public string RowColor => Success ? "#6E6E73" : "#FF3B30";
 }
 
 public sealed class PingStatistics
@@ -173,15 +171,6 @@ public sealed class PingStatistics
 
     public double LossRate => Sent == 0 ? 0 : (double)Lost / Sent * 100.0;
     public double AvgLatency => Received == 0 ? 0 : (double)SumLatency / Received;
-    public double StdDev
-    {
-        get
-        {
-            // We don't store each sample; fall back to (max-min)/sqrt(n) as a rough proxy.
-            if (Received < 2) return 0;
-            return (MaxLatency - MinLatency) / Math.Sqrt(Received);
-        }
-    }
 
     public void Reset()
     {

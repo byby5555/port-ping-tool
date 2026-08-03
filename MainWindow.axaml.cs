@@ -1,7 +1,7 @@
 using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Documents;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
 using PortPingTool.Services;
 
 namespace PortPingTool;
@@ -9,27 +9,28 @@ namespace PortPingTool;
 public partial class MainWindow : Window
 {
     private readonly ObservableCollection<PortListenerService> _listeners = new();
+    private readonly ObservableCollection<ConnectionRecord> _connectionLog = new();
     private readonly PingService _ping = new();
 
     public MainWindow()
     {
         InitializeComponent();
         ListenerList.ItemsSource = _listeners;
-        ConnectionLog.ItemsSource = new ObservableCollection<ConnectionRecord>();
+        ConnectionLog.ItemsSource = _connectionLog;
         PingResults.ItemsSource = _ping.Results;
 
         _ping.ResultArrived += OnPingResult;
         _ping.StateChanged += OnPingStateChanged;
 
-        CountFixed.Checked  += (_, _) => CountBox.IsEnabled = true;
-        CountContinuous.Checked += (_, _) => CountBox.IsEnabled = false;
+        CountFixed.IsCheckedChanged   += (_, _) => { if (CountFixed.IsChecked == true) CountBox.IsEnabled = true; };
+        CountContinuous.IsCheckedChanged += (_, _) => { if (CountContinuous.IsChecked == true) CountBox.IsEnabled = false; };
     }
 
     // ========================= Listener =========================
 
-    private void OnAddListenerClick(object sender, RoutedEventArgs e)
+    private void OnAddListenerClick(object? sender, RoutedEventArgs e)
     {
-        if (!int.TryParse(PortInputBox.Text.Trim(), out var port) || port <= 0 || port > 65535)
+        if (!int.TryParse(PortInputBox.Text?.Trim(), out var port) || port <= 0 || port > 65535)
         {
             AppendLog($"[错误] 端口无效: {PortInputBox.Text}");
             return;
@@ -43,22 +44,20 @@ public partial class MainWindow : Window
         var svc = new PortListenerService(port);
         svc.ConnectionArrived += record =>
         {
-            Dispatcher.Invoke(() =>
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
-                ((ObservableCollection<ConnectionRecord>)ConnectionLog.ItemsSource).Insert(0, record);
-                // Keep log bounded
-                var log = (ObservableCollection<ConnectionRecord>)ConnectionLog.ItemsSource;
-                while (log.Count > 500) log.RemoveAt(log.Count - 1);
+                _connectionLog.Insert(0, record);
+                while (_connectionLog.Count > 500) _connectionLog.RemoveAt(_connectionLog.Count - 1);
                 AppendLog($"[连接] 端口 {port} 来自 {record.RemoteEndPoint}");
             });
         };
-        svc.ErrorOccurred += msg => Dispatcher.Invoke(() => AppendLog($"[错误] {msg}"));
+        svc.ErrorOccurred += msg => Dispatcher.UIThread.InvokeAsync(() => AppendLog($"[错误] {msg}"));
 
         _listeners.Add(svc);
         PortInputBox.Text = (port + 1).ToString();
     }
 
-    private async void OnToggleListenerClick(object sender, RoutedEventArgs e)
+    private async void OnToggleListenerClick(object? sender, RoutedEventArgs e)
     {
         if (sender is not Button btn || btn.Tag is not PortListenerService svc) return;
         try
@@ -82,24 +81,24 @@ public partial class MainWindow : Window
 
     // ========================= Tester =========================
 
-    private async void OnTestPortClick(object sender, RoutedEventArgs e)
+    private async void OnTestPortClick(object? sender, RoutedEventArgs e)
     {
-        var host = TestHostBox.Text.Trim();
-        if (!int.TryParse(TestPortBox.Text.Trim(), out var port) || port <= 0 || port > 65535)
+        var host = TestHostBox.Text?.Trim() ?? "";
+        if (!int.TryParse(TestPortBox.Text?.Trim(), out var port) || port <= 0 || port > 65535)
         {
             TestResultText.Text = "端口无效";
-            TestResultText.Foreground = AppleTheme.DangerBrush;
+            TestResultText.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FF3B30"));
             return;
         }
         if (string.IsNullOrWhiteSpace(host))
         {
             TestResultText.Text = "主机不能为空";
-            TestResultText.Foreground = AppleTheme.DangerBrush;
+            TestResultText.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FF3B30"));
             return;
         }
 
         TestResultText.Text = "测试中…";
-        TestResultText.Foreground = AppleTheme.TextSecondaryBrush;
+        TestResultText.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#6E6E73"));
         TestPortClickBtn.IsEnabled = false;
         try
         {
@@ -107,7 +106,8 @@ public partial class MainWindow : Window
             TestResultText.Text = r.IsOpen
                 ? $"OPEN · {r.LatencyMs} ms"
                 : $"CLOSED · {r.Detail}";
-            TestResultText.Foreground = r.IsOpen ? AppleTheme.SuccessBrush : AppleTheme.DangerBrush;
+            var color = r.IsOpen ? "#34C759" : "#FF3B30";
+            TestResultText.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(color));
         }
         finally
         {
@@ -117,22 +117,22 @@ public partial class MainWindow : Window
 
     // ========================= Ping =========================
 
-    private void OnIntervalChanged(object sender, RoutedEventArgs e)
+    private void OnIntervalChanged(object? sender, RoutedEventArgs e)
     {
-        if (_ping.IsRunning) return; // only adjust before start
+        if (_ping.IsRunning) return;
         _ping.IntervalMode = Interval1000.IsChecked == true
             ? PingIntervalMode.Standard1000
             : PingIntervalMode.Fast100;
     }
 
-    private async void OnPingToggleClick(object sender, RoutedEventArgs e)
+    private async void OnPingToggleClick(object? sender, RoutedEventArgs e)
     {
         if (_ping.IsRunning)
         {
             _ping.Stop();
             return;
         }
-        var host = PingHostBox.Text.Trim();
+        var host = PingHostBox.Text?.Trim() ?? "";
         if (string.IsNullOrWhiteSpace(host))
         {
             AppendLog("[错误] Ping 主机不能为空");
@@ -157,9 +157,8 @@ public partial class MainWindow : Window
 
     private void OnPingResult(PingRecord r)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.UIThread.InvokeAsync(() =>
         {
-            // Results list auto-scrolled by ObservableCollection; we manually scroll to bottom.
             PingResultScroller.ScrollToEnd();
             UpdateStats();
         });
@@ -167,7 +166,7 @@ public partial class MainWindow : Window
 
     private void OnPingStateChanged(bool running)
     {
-        Dispatcher.Invoke(() =>
+        Dispatcher.UIThread.InvokeAsync(() =>
         {
             PingToggleBtn.Content = running ? "停止" : "开始";
             if (running) UpdateStats();
@@ -187,7 +186,6 @@ public partial class MainWindow : Window
 
     private void AppendLog(string message)
     {
-        // Lightweight; could route to a dedicated log panel later.
         System.Diagnostics.Debug.WriteLine($"{DateTime.Now:HH:mm:ss} {message}");
     }
 }

@@ -15,11 +15,14 @@ public sealed class PortListenerService : IDisposable
     public DateTime StartedAt { get; private set; }
     public bool IsListening => _listener is not null && _isRunning;
 
+    // Status indicator color (exposed for XAML binding; avoids MultiBinding)
+    public string StatusDotColor => IsListening ? "#34C759" : "#8E8E93";
+
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private bool _isRunning;
 
-    /// <summary>Live, thread-safe log of incoming connections.</summary>
+    /// <summary>Live, thread-safe log of incoming connections (most recent first).</summary>
     public ObservableCollection<ConnectionRecord> Connections { get; } = new();
 
     private readonly ConcurrentBag<ConnectionRecord> _all = new();
@@ -30,9 +33,9 @@ public sealed class PortListenerService : IDisposable
 
     public PortListenerService(int port) => Port = port;
 
-    public async Task StartAsync()
+    public Task StartAsync()
     {
-        if (_isRunning) return;
+        if (_isRunning) return Task.CompletedTask;
         try
         {
             _listener = new TcpListener(IPAddress.Any, Port);
@@ -41,8 +44,8 @@ public sealed class PortListenerService : IDisposable
             StartedAt = DateTime.Now;
             _cts = new CancellationTokenSource();
 
-            // Accept loop runs on background; UI updates marshalled through Dispatcher by caller.
             _ = Task.Run(() => AcceptLoopAsync(_cts.Token));
+            return Task.CompletedTask;
         }
         catch (Exception ex)
         {
@@ -98,10 +101,7 @@ public sealed class PortListenerService : IDisposable
         }
     }
 
-    public void Dispose()
-    {
-        Stop();
-    }
+    public void Dispose() => Stop();
 }
 
 public sealed class ConnectionRecord

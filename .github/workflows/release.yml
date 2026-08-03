@@ -5,11 +5,6 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
-    inputs:
-      publish_release:
-        description: 'Create a GitHub Release'
-        required: false
-        default: 'true'
 
 jobs:
   build:
@@ -33,6 +28,7 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -o publish/win-x64
 
@@ -44,6 +40,7 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -o publish/win-x86
 
@@ -55,6 +52,7 @@ jobs:
           --self-contained true
           -p:PublishSingleFile=true
           -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:IncludeAllContentForSelfExtract=true
           -p:EnableCompressionInSingleFile=true
           -o publish/win-arm64
 
