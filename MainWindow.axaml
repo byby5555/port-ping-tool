@@ -148,6 +148,7 @@
                           <ColumnDefinition Width="Auto"/>
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="Auto"/>
+                          <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                                         <Ellipse Grid.Column="0" Width="10" Height="10"
                                  VerticalAlignment="Center" Margin="0,0,10,0"
@@ -163,14 +164,12 @@
                         </StackPanel>
                         <Button Grid.Column="2" Margin="0,0,6,0"
                                 Tag="{Binding}" Click="OnToggleListenerClick"
-                                Classes="primary">
-                          <Panel>
-                            <!-- Toggle label: hidden/shown based on IsListening -->
-                            <TextBlock Text="启动" IsVisible="{Binding !IsListening}"/>
-                            <TextBlock Text="停止" IsVisible="{Binding IsListening}"
-                                       Foreground="White"/>
-                          </Panel>
-                        </Button>
+                                Background="{Binding ToggleButtonColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"
+                                Content="{Binding ToggleButtonText}"/>
+                        <Button Grid.Column="3" Margin="0,0,0,0"
+                                Tag="{Binding}" Click="OnRemoveListenerClick"
+                                Classes="secondary"
+                                Content="删除"/>
                       </Grid>
                     </Border>
                   </DataTemplate>

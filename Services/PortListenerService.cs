@@ -1,7 +1,9 @@
 using System.Collections.Concurrent;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.CompilerServices;
 
 namespace PortPingTool.Services;
 
@@ -9,7 +11,7 @@ namespace PortPingTool.Services;
 /// One TCP listener instance. Tracks every accepted connection so the user
 /// can see who hit their port (essential for network ops debugging).
 /// </summary>
-public sealed class PortListenerService : IDisposable
+public sealed class PortListenerService : IDisposable, INotifyPropertyChanged
 {
     public int Port { get; }
     public DateTime StartedAt { get; private set; }
@@ -17,6 +19,16 @@ public sealed class PortListenerService : IDisposable
 
     // Status indicator color (exposed for XAML binding; avoids MultiBinding)
     public string StatusDotColor => IsListening ? "#34C759" : "#8E8E93";
+
+    // Toggle button label: 启动 / 停止
+    public string ToggleButtonText => IsListening ? "停止" : "启动";
+
+    // Toggle button background (red when listening, blue otherwise)
+    public string ToggleButtonColor => IsListening ? "#FF3B30" : "#007AFF";
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private void OnPropertyChanged([CallerMemberName] string? name = null)
+        => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
@@ -45,6 +57,11 @@ public sealed class PortListenerService : IDisposable
             _cts = new CancellationTokenSource();
 
             _ = Task.Run(() => AcceptLoopAsync(_cts.Token));
+
+            OnPropertyChanged(nameof(IsListening));
+            OnPropertyChanged(nameof(StatusDotColor));
+            OnPropertyChanged(nameof(ToggleButtonText));
+            OnPropertyChanged(nameof(ToggleButtonColor));
             return Task.CompletedTask;
         }
         catch (Exception ex)
@@ -98,6 +115,10 @@ public sealed class PortListenerService : IDisposable
             _listener = null;
             _cts?.Dispose();
             _cts = null;
+            OnPropertyChanged(nameof(IsListening));
+            OnPropertyChanged(nameof(StatusDotColor));
+            OnPropertyChanged(nameof(ToggleButtonText));
+            OnPropertyChanged(nameof(ToggleButtonColor));
         }
     }
 
