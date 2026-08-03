@@ -250,6 +250,7 @@ public partial class MainWindow : Window
             ? PingIntervalMode.Standard1000
             : PingIntervalMode.Fast100;
         _ping.Results.Clear();
+        _ping.LostResults.Clear();
         await _ping.StartAsync(host, count);
     }
 
@@ -257,12 +258,46 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
+            // Add to "全部" list, capped at 1000
             _ping.Results.Add(r);
-            // Keep results list bounded so memory doesn't grow during long runs.
             while (_ping.Results.Count > 1000) _ping.Results.RemoveAt(0);
-            PingResultScroller.ScrollToEnd();
+
+            // Add to "丢包" list (if failed), capped at 1000
+            if (!r.Success)
+            {
+                _ping.LostResults.Add(r);
+                while (_ping.LostResults.Count > 1000) _ping.LostResults.RemoveAt(0);
+            }
+
+            // Auto-scroll only the currently-shown list
+            if (ShowAllRadio.IsChecked == true)
+                PingResultScroller.ScrollToEnd();
             UpdateStats();
+            UpdatePingListCount();
         });
+    }
+
+    private void OnPingViewChanged(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not RadioButton) return;
+        if (ShowAllRadio.IsChecked == true)
+        {
+            PingResults.ItemsSource = _ping.Results;
+        }
+        else if (ShowLostRadio.IsChecked == true)
+        {
+            PingResults.ItemsSource = _ping.LostResults;
+        }
+        PingResultScroller.ScrollToEnd();
+        UpdatePingListCount();
+    }
+
+    private void UpdatePingListCount()
+    {
+        var showingLost = ShowLostRadio.IsChecked == true;
+        var count = showingLost ? _ping.LostResults.Count : _ping.Results.Count;
+        var total = showingLost ? _ping.Stats.Lost : _ping.Stats.Sent;
+        PingListCount.Text = $"显示 {count} / {total}";
     }
 
     private void OnPingStateChanged(bool running)
@@ -271,6 +306,7 @@ public partial class MainWindow : Window
         {
             PingToggleBtn.Content = running ? "停止" : "开始";
             if (running) UpdateStats();
+            UpdatePingListCount();
         });
     }
 

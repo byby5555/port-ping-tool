@@ -22,6 +22,10 @@ public sealed class PingService : IDisposable
     public bool IsRunning { get; private set; }
 
     public ObservableCollection<PingRecord> Results { get; } = new();
+
+    /// <summary>Subset of Results containing only failed (lost) packets, capped at 1000.</summary>
+    public ObservableCollection<PingRecord> LostResults { get; } = new();
+
     public PingStatistics Stats { get; } = new();
 
     public event Action<PingRecord>? ResultArrived;
@@ -118,6 +122,7 @@ public sealed class PingService : IDisposable
         {
             Stats.Reset();
             Results.Clear();
+            LostResults.Clear();
         }
     }
 

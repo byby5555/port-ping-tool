@@ -341,21 +341,37 @@
             </Grid>
           </Border>
 
-          <TextBlock Grid.Row="4" Text="实时结果" Classes="label" Margin="0,14,0,6"/>
-          <Border Grid.Row="4" Classes="subcard" Margin="0,32,0,0">
-            <ScrollViewer x:Name="PingResultScroller" VerticalScrollBarVisibility="Auto">
-              <ItemsControl x:Name="PingResults" Padding="10,8">
-                <ItemsControl.ItemTemplate>
-                  <DataTemplate DataType="svc:PingRecord">
-                    <TextBlock Text="{Binding Display}"
-                               FontFamily="Cascadia Mono, Consolas, Courier New"
-                               FontSize="11" Margin="0,1"
-                               Foreground="{Binding RowColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
-                  </DataTemplate>
-                </ItemsControl.ItemTemplate>
-              </ItemsControl>
-            </ScrollViewer>
-          </Border>
+          <Grid Grid.Row="4" Margin="0,14,0,0">
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto"/>
+              <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+              <TextBlock Text="结果" Classes="label" Margin="0,0,14,0" VerticalAlignment="Center"/>
+              <RadioButton x:Name="ShowAllRadio" Content="全部" GroupName="PingView"
+                           IsChecked="True" Margin="0,0,14,0"
+                           Checked="OnPingViewChanged"/>
+              <RadioButton x:Name="ShowLostRadio" Content="只丢包" GroupName="PingView"
+                           Checked="OnPingViewChanged"/>
+              <TextBlock x:Name="PingListCount" Margin="14,0,0,0"
+                         VerticalAlignment="Center" FontSize="11"
+                         Foreground="{StaticResource TextTertiary}"/>
+            </StackPanel>
+            <Border Grid.Row="1" Classes="subcard">
+              <ScrollViewer x:Name="PingResultScroller" VerticalScrollBarVisibility="Auto">
+                <ItemsControl x:Name="PingResults" Padding="10,8">
+                  <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="svc:PingRecord">
+                      <TextBlock Text="{Binding Display}"
+                                 FontFamily="Cascadia Mono, Consolas, Courier New"
+                                 FontSize="11" Margin="0,1"
+                                 Foreground="{Binding RowColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
+                    </DataTemplate>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
+              </ScrollViewer>
+            </Border>
+          </Grid>
         </Grid>
       </Border>
     </Grid>
