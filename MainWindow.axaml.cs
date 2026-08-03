@@ -171,6 +171,9 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
+            _ping.Results.Add(r);
+            // Keep results list bounded so memory doesn't grow during long runs.
+            while (_ping.Results.Count > 1000) _ping.Results.RemoveAt(0);
             PingResultScroller.ScrollToEnd();
             UpdateStats();
         });
