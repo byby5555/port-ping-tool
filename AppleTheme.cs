@@ -53,17 +53,4 @@ public static class AppleTheme
     public const double RadiusSmall  = 6;
     public const double RadiusMedium = 10;
     public const double RadiusLarge  = 14;
-
-    /// <summary>Returns a card style used for grouped panels.</summary>
-    public static Style CardBorderStyle() => new(typeof(Border))
-    {
-        Setters =
-        {
-            new Setter(Border.BackgroundProperty, BgPanelBrush),
-            new Setter(Border.CornerRadiusProperty, new CornerRadius(RadiusLarge)),
-            new Setter(Border.BorderBrushProperty, BorderBrush),
-            new Setter(Border.BorderThicknessProperty, new Thickness(1)),
-            new Setter(Border.PaddingProperty, new Thickness(16)),
-        }
-    };
 }
