@@ -1,0 +1,346 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:svc="clr-namespace:PortPingTool.Services"
+        mc:Ignorable="d" d:DesignWidth="1180" d:DesignHeight="780"
+        x:Class="PortPingTool.MainWindow"
+        Title="Port &amp; Ping Tool"
+        Width="1180" Height="780"
+        MinWidth="900" MinHeight="600"
+        Background="#F5F5F7"
+        FontFamily="Inter, Segoe UI Variable, Segoe UI"
+        WindowStartupLocation="CenterScreen">
+
+  <Window.Resources>
+    <SolidColorBrush x:Key="BgPanel">#FFFFFF</SolidColorBrush>
+    <SolidColorBrush x:Key="BgPanelAlt">#FAFAFC</SolidColorBrush>
+    <SolidColorBrush x:Key="BorderColor">#E5E5EA</SolidColorBrush>
+    <SolidColorBrush x:Key="DividerColor">#ECECEF</SolidColorBrush>
+    <SolidColorBrush x:Key="TextPrimary">#1D1D1F</SolidColorBrush>
+    <SolidColorBrush x:Key="TextSecondary">#6E6E73</SolidColorBrush>
+    <SolidColorBrush x:Key="TextTertiary">#8E8E93</SolidColorBrush>
+    <SolidColorBrush x:Key="Accent">#007AFF</SolidColorBrush>
+    <SolidColorBrush x:Key="AccentHover">#006FE6</SolidColorBrush>
+    <SolidColorBrush x:Key="Success">#34C759</SolidColorBrush>
+    <SolidColorBrush x:Key="Warning">#FF9500</SolidColorBrush>
+    <SolidColorBrush x:Key="Danger">#FF3B30</SolidColorBrush>
+  </Window.Resources>
+
+  <Window.Styles>
+    <Style Selector="TextBlock.h1">
+      <Setter Property="FontSize" Value="20"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+    </Style>
+    <Style Selector="TextBlock.cardTitle">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="Foreground" Value="{StaticResource TextTertiary}"/>
+    </Style>
+    <Style Selector="TextBlock.label">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="FontWeight" Value="Medium"/>
+      <Setter Property="Foreground" Value="{StaticResource TextSecondary}"/>
+      <Setter Property="Margin" Value="0,0,0,6"/>
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Padding" Value="10,8"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="{StaticResource Accent}"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="{StaticResource AccentHover}"/>
+    </Style>
+    <Style Selector="Button.secondary">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+      <Setter Property="Background" Value="{StaticResource BgPanelAlt}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Padding" Value="16,8"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="{StaticResource Danger}"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{StaticResource BgPanel}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="14"/>
+      <Setter Property="Padding" Value="16"/>
+    </Style>
+    <Style Selector="Border.subcard">
+      <Setter Property="Background" Value="{StaticResource BgPanelAlt}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource BorderColor}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="8"/>
+    </Style>
+  </Window.Styles>
+
+  <Grid Margin="20">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*" MinWidth="380"/>
+      <ColumnDefinition Width="20"/>
+      <ColumnDefinition Width="*" MinWidth="380"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- ====================== LEFT: PORT (Listen + Test) ====================== -->
+    <Grid Grid.Column="0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0" Margin="0,0,0,12">
+        <TextBlock Text="端口" Classes="h1"/>
+        <TextBlock Text="监听本机端口、测试远端端口连通性" Classes="h2" Margin="0,2,0,0"/>
+      </StackPanel>
+
+      <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+        <StackPanel>
+
+          <!-- Listener card -->
+          <Border Classes="card">
+            <StackPanel>
+              <TextBlock Text="本机端口监听" Classes="cardTitle"/>
+              <TextBlock Text="添加端口、启动监听,记录每个来访连接" Classes="caption" Margin="0,2,0,14"/>
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox x:Name="PortInputBox" Grid.Column="0" Text="8080" />
+                <Button Grid.Column="1" Classes="secondary" Margin="8,0,0,0"
+                        Content="+ 添加" Click="OnAddListenerClick"/>
+              </Grid>
+
+              <ItemsControl x:Name="ListenerList" Margin="0,14,0,0">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="svc:PortListenerService">
+                    <Border Classes="subcard" Margin="0,4" Padding="12,10">
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto"/>
+                          <ColumnDefinition Width="*"/>
+                          <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                                        <Ellipse Grid.Column="0" Width="10" Height="10"
+                                 VerticalAlignment="Center" Margin="0,0,10,0"
+                                 Fill="{Binding StatusDotColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                          <TextBlock FontSize="14" FontWeight="SemiBold"
+                                     Foreground="{StaticResource TextPrimary}">
+                            <Run Text="Port "/><Run Text="{Binding Port, Mode=OneWay}"/>
+                          </TextBlock>
+                          <TextBlock FontSize="11" Foreground="{StaticResource TextTertiary}">
+                            <Run Text="连接 "/><Run Text="{Binding TotalConnections, Mode=OneWay}"/><Run Text=" 次"/>
+                          </TextBlock>
+                        </StackPanel>
+                        <Button Grid.Column="2" Margin="0,0,6,0"
+                                Tag="{Binding}" Click="OnToggleListenerClick"
+                                Classes="primary">
+                          <Panel>
+                            <!-- Toggle label: hidden/shown based on IsListening -->
+                            <TextBlock Text="启动" IsVisible="{Binding !IsListening}"/>
+                            <TextBlock Text="停止" IsVisible="{Binding IsListening}"
+                                       Foreground="White"/>
+                          </Panel>
+                        </Button>
+                      </Grid>
+                    </Border>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+
+              <TextBlock Text="连接记录 (最新在上)" Classes="label" Margin="0,16,0,6"/>
+              <Border Classes="subcard" MinHeight="120" MaxHeight="200">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                  <ItemsControl x:Name="ConnectionLog" Padding="10,8">
+                    <ItemsControl.ItemTemplate>
+                      <DataTemplate DataType="svc:ConnectionRecord">
+                        <TextBlock Text="{Binding Display}"
+                                   FontFamily="Cascadia Mono, Consolas, Courier New"
+                                   FontSize="11"
+                                   Foreground="{StaticResource TextSecondary}"
+                                   Margin="0,1"/>
+                      </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                  </ItemsControl>
+                </ScrollViewer>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <!-- Tester card -->
+          <Border Classes="card" Margin="0,14,0,0">
+            <StackPanel>
+              <TextBlock Text="远端端口测试" Classes="cardTitle"/>
+              <TextBlock Text="测试某个 IP 的端口是否开放" Classes="caption" Margin="0,2,0,14"/>
+
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="2*"/>
+                  <ColumnDefinition Width="10"/>
+                  <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="Auto"/>
+                  <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="主机 / IP" Classes="label"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="端口" Classes="label"/>
+                <TextBox Grid.Row="1" Grid.Column="0" x:Name="TestHostBox" Text="1.1.1.1"/>
+                <TextBox Grid.Row="1" Grid.Column="2" x:Name="TestPortBox" Text="443"/>
+              </Grid>
+
+              <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                <Button x:Name="TestPortClickBtn" Classes="primary"
+                        Content="测试" Click="OnTestPortClick"/>
+                <TextBlock x:Name="TestResultText" Margin="14,0,0,0"
+                           VerticalAlignment="Center" FontSize="13"
+                           Foreground="{StaticResource TextSecondary}"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+
+        </StackPanel>
+      </ScrollViewer>
+    </Grid>
+
+    <!-- ====================== RIGHT: PING ====================== -->
+    <Grid Grid.Column="2">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+      </Grid.RowDefinitions>
+
+      <StackPanel Grid.Row="0" Margin="0,0,0,12">
+        <TextBlock Text="Ping" Classes="h1"/>
+        <TextBlock Text="高频 ICMP 探测,统计丢包与延迟" Classes="h2" Margin="0,2,0,0"/>
+      </StackPanel>
+
+      <Border Grid.Row="1" Classes="card">
+        <Grid>
+          <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+          </Grid.RowDefinitions>
+
+          <Grid Grid.Row="0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="PingHostBox" Grid.Column="0" Text="1.1.1.1"/>
+            <Button Grid.Column="1" x:Name="PingToggleBtn" Margin="8,0,0,0"
+                    Classes="primary" Content="开始" Click="OnPingToggleClick"/>
+          </Grid>
+
+          <!-- Interval mode -->
+          <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,14,0,0">
+            <TextBlock Text="间隔:" VerticalAlignment="Center" Margin="0,0,10,0"
+                       Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <RadioButton x:Name="Interval1000" Content="1000 ms (标准)"
+                         GroupName="Interval" IsChecked="True"
+                         VerticalAlignment="Center" Margin="0,0,14,0"
+                         Checked="OnIntervalChanged"/>
+            <RadioButton x:Name="Interval100" Content="100 ms (快)"
+                         GroupName="Interval"
+                         VerticalAlignment="Center"
+                         Checked="OnIntervalChanged"/>
+          </StackPanel>
+
+          <!-- Count mode -->
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,10,0,0">
+            <TextBlock Text="次数:" VerticalAlignment="Center" Margin="0,0,10,0"
+                       Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <RadioButton x:Name="CountContinuous" Content="持续"
+                         GroupName="Count" IsChecked="True"
+                         VerticalAlignment="Center" Margin="0,0,14,0"/>
+            <RadioButton x:Name="CountFixed" Content="自定义:"
+                         GroupName="Count"
+                         VerticalAlignment="Center"/>
+            <TextBox x:Name="CountBox" Width="60" Margin="6,0,0,0" Text="10" IsEnabled="False"/>
+          </StackPanel>
+
+          <!-- Statistics panel -->
+          <Border Grid.Row="3" Classes="subcard" Margin="0,14,0,0" Padding="14,10">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel Grid.Column="0">
+                <TextBlock Text="已发送" Classes="caption"/>
+                <TextBlock x:Name="StatSent" Text="0" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="1">
+                <TextBlock Text="已接收" Classes="caption"/>
+                <TextBlock x:Name="StatRecv" Text="0" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource Success}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="丢包率" Classes="caption"/>
+                <TextBlock x:Name="StatLoss" Text="0.0%" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource Danger}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="3">
+                <TextBlock Text="平均延迟" Classes="caption"/>
+                <TextBlock x:Name="StatAvg" Text="0 ms" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimary}"/>
+              </StackPanel>
+            </Grid>
+          </Border>
+
+          <TextBlock Grid.Row="4" Text="实时结果" Classes="label" Margin="0,14,0,6"/>
+          <Border Grid.Row="4" Classes="subcard" Margin="0,32,0,0">
+            <ScrollViewer x:Name="PingResultScroller" VerticalScrollBarVisibility="Auto">
+              <ItemsControl x:Name="PingResults" Padding="10,8">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate DataType="svc:PingRecord">
+                    <TextBlock Text="{Binding Display}"
+                               FontFamily="Cascadia Mono, Consolas, Courier New"
+                               FontSize="11" Margin="0,1"
+                               Foreground="{Binding RowColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

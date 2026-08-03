@@ -17,6 +17,9 @@ ARM64/
 *.pfx
 *.snupkg
 
+## Avalonia build artifacts
+.avalonia-build-tasks/
+
 ## Publish output
 publish/
 *.exe

@@ -3,9 +3,6 @@ using System.Net.Sockets;
 
 namespace PortPingTool.Services;
 
-/// <summary>
-/// Tests a remote TCP endpoint. Returns latency, success/failure, and a short reason.
-/// </summary>
 public static class PortTesterService
 {
     public static async Task<PortTestResult> TestAsync(string host, int port, int timeoutMs = 3000, CancellationToken ct = default)
@@ -16,7 +13,6 @@ public static class PortTesterService
             if (string.IsNullOrWhiteSpace(host))
                 return new PortTestResult(false, 0, "Host is empty");
 
-            // Resolve first so we can give a clear DNS error message.
             IPAddress[] addresses;
             try
             {
