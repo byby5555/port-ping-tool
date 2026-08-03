@@ -258,7 +258,7 @@ public partial class MainWindow : Window
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            // Add to "全部" list, capped at 1000
+            // Add to "全部" list, capped at 1000 (oldest dropped)
             _ping.Results.Add(r);
             while (_ping.Results.Count > 1000) _ping.Results.RemoveAt(0);
 
@@ -269,7 +269,7 @@ public partial class MainWindow : Window
                 while (_ping.LostResults.Count > 1000) _ping.LostResults.RemoveAt(0);
             }
 
-            // Auto-scroll only the currently-shown list
+            // Auto-scroll only when "全部" is active
             if (ShowAllRadio.IsChecked == true)
                 PingResultScroller.ScrollToEnd();
             UpdateStats();
@@ -279,22 +279,21 @@ public partial class MainWindow : Window
 
     private void OnPingViewChanged(object? sender, RoutedEventArgs e)
     {
-        if (sender is not RadioButton) return;
-        if (ShowAllRadio.IsChecked == true)
-        {
-            PingResults.ItemsSource = _ping.Results;
-        }
-        else if (ShowLostRadio.IsChecked == true)
-        {
-            PingResults.ItemsSource = _ping.LostResults;
-        }
+        // Don't early-out on sender type — we want this handler to run
+        // regardless of which radio fired the event.
+        bool showingLost = ShowLostRadio.IsChecked == true;
+        // Force-clear-then-set to ensure the ItemsControl rebinds even if
+        // ObservableCollection events are swallowed by Avalonia's binding cache.
+        PingResults.ItemsSource = null;
+        PingResults.ItemsSource = showingLost ? _ping.LostResults : _ping.Results;
         PingResultScroller.ScrollToEnd();
+        UpdateStats();             // <-- also update top 4 stat cards
         UpdatePingListCount();
     }
 
     private void UpdatePingListCount()
     {
-        var showingLost = ShowLostRadio.IsChecked == true;
+        bool showingLost = ShowLostRadio.IsChecked == true;
         var count = showingLost ? _ping.LostResults.Count : _ping.Results.Count;
         var total = showingLost ? _ping.Stats.Lost : _ping.Stats.Sent;
         PingListCount.Text = $"显示 {count} / {total}";
@@ -312,11 +311,28 @@ public partial class MainWindow : Window
 
     private void UpdateStats()
     {
-        var s = _ping.Stats;
-        StatSent.Text = s.Sent.ToString();
-        StatRecv.Text = s.Received.ToString();
-        StatLoss.Text = $"{s.LossRate:F1}%";
-        StatAvg.Text  = $"{s.AvgLatency:F0} ms";
+        // "全部" 模式:显示所有统计
+        // "只丢包" 模式:统计针对丢包子集
+        bool showingLost = ShowLostRadio.IsChecked == true;
+        if (showingLost)
+        {
+            // Lost-only view: sent/recv/loss computed over the lost-list size
+            int lostCount = _ping.LostResults.Count;
+            int totalAttempts = _ping.Stats.Sent;
+            int totalLost = _ping.Stats.Lost;
+            StatSent.Text = $"{totalLost} (丢包)";
+            StatRecv.Text = $"0 (全失败)";
+            StatLoss.Text = totalAttempts == 0 ? "0.0%" : $"{(double)totalLost / totalAttempts * 100:F1}%";
+            StatAvg.Text  = "—";
+        }
+        else
+        {
+            var s = _ping.Stats;
+            StatSent.Text = s.Sent.ToString();
+            StatRecv.Text = s.Received.ToString();
+            StatLoss.Text = $"{s.LossRate:F1}%";
+            StatAvg.Text  = $"{s.AvgLatency:F0} ms";
+        }
     }
 
     // ========================= Misc =========================
