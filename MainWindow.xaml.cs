@@ -115,8 +115,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private Button TestPortClickBtn => (Button)FindName("TestPortClickBtn") ?? new Button();
-
     // ========================= Ping =========================
 
     private void OnIntervalChanged(object sender, RoutedEventArgs e)

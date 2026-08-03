@@ -176,7 +176,6 @@
                                                     </TextBlock>
                                                 </StackPanel>
                                                 <Button Grid.Column="2" Margin="0,0,6,0"
-                                                        Style="{StaticResource PrimaryButton}"
                                                         Tag="{Binding}" Click="OnToggleListenerClick">
                                                     <Button.Style>
                                                         <Style TargetType="Button" BasedOn="{StaticResource PrimaryButton}">
@@ -245,7 +244,7 @@
                             </Grid>
 
                             <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                <Button Style="{StaticResource PrimaryButton}" Content="测试"
+                                <Button x:Name="TestPortClickBtn" Style="{StaticResource PrimaryButton}" Content="测试"
                                         Click="OnTestPortClick"/>
                                 <TextBlock x:Name="TestResultText" Margin="14,0,0,0"
                                            VerticalAlignment="Center" FontSize="13"
