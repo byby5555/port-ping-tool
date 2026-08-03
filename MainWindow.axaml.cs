@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
@@ -89,6 +90,91 @@ public partial class MainWindow : Window
         }
         _listeners.Remove(svc);
         AppendLog($"[删除] 端口 {svc.Port} 已从列表移除");
+    }
+
+    // ========================= Inline port edit =========================
+    // Click the "Port 8080" label to switch into edit mode (textbox).
+    // Press Enter / lose focus to commit. Press Escape to cancel.
+
+    private PortListenerService? _editingService;
+
+    private void OnPortLabelPointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+    {
+        if (sender is not TextBlock tb || tb.Tag is not PortListenerService svc) return;
+        if (svc.IsListening) return; // can't edit while listening
+        _editingService = svc;
+
+        // Find the sibling TextBox in the same StackPanel
+        var parent = tb.Parent as StackPanel;
+        if (parent is null) return;
+        var editBox = parent.Children.OfType<TextBox>().FirstOrDefault();
+        if (editBox is null) return;
+
+        editBox.Text = svc.Port.ToString();
+        editBox.IsVisible = true;
+        editBox.Focus();
+        editBox.SelectAll();
+        tb.IsVisible = false;
+        e.Handled = true;
+    }
+
+    private void OnPortEditKeyDown(object? sender, Avalonia.Input.KeyEventArgs e)
+    {
+        if (sender is not TextBox tb) return;
+        if (_editingService is null) return;
+
+        if (e.Key == Avalonia.Input.Key.Enter)
+        {
+            CommitPortEdit(tb);
+            e.Handled = true;
+        }
+        else if (e.Key == Avalonia.Input.Key.Escape)
+        {
+            CancelPortEdit(tb);
+            e.Handled = true;
+        }
+    }
+
+    private void OnPortEditLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb) CommitPortEdit(tb);
+    }
+
+    private void CommitPortEdit(TextBox tb)
+    {
+        if (_editingService is null || !tb.IsVisible) return;
+        if (int.TryParse(tb.Text?.Trim(), out var newPort) && newPort > 0 && newPort <= 65535)
+        {
+            // Make sure no other listener has the same port
+            if (_listeners.Any(l => l != _editingService && l.Port == newPort))
+            {
+                AppendLog($"[错误] 端口 {newPort} 已被其他监听占用");
+                return; // keep edit open
+            }
+            _editingService.Port = newPort;
+            AppendLog($"[修改] 端口已改为 {newPort}");
+        }
+        else
+        {
+            AppendLog($"[错误] 端口无效: {tb.Text}");
+            return; // keep edit open
+        }
+        tb.IsVisible = false;
+        // Restore the label visibility
+        var parent = tb.Parent as StackPanel;
+        var label = parent?.Children.OfType<TextBlock>().FirstOrDefault();
+        if (label is not null) label.IsVisible = true;
+        _editingService = null;
+    }
+
+    private void CancelPortEdit(TextBox tb)
+    {
+        if (!tb.IsVisible) return;
+        tb.IsVisible = false;
+        var parent = tb.Parent as StackPanel;
+        var label = parent?.Children.OfType<TextBlock>().FirstOrDefault();
+        if (label is not null) label.IsVisible = true;
+        _editingService = null;
     }
 
     // ========================= Tester =========================

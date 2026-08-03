@@ -142,31 +142,49 @@
               <ItemsControl x:Name="ListenerList" Margin="0,14,0,0">
                 <ItemsControl.ItemTemplate>
                   <DataTemplate DataType="svc:PortListenerService">
-                    <Border Classes="subcard" Margin="0,4" Padding="12,10">
+                    <Border Classes="subcard" Margin="0,4" Padding="0,0">
                       <Grid>
                         <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="6"/>
                           <ColumnDefinition Width="Auto"/>
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="Auto"/>
                           <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                                        <Ellipse Grid.Column="0" Width="10" Height="10"
-                                 VerticalAlignment="Center" Margin="0,0,10,0"
-                                 Fill="{Binding StatusDotColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
-                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                          <TextBlock FontSize="14" FontWeight="SemiBold"
-                                     Foreground="{StaticResource TextPrimary}">
-                            <Run Text="Port "/><Run Text="{Binding Port, Mode=OneWay}"/>
-                          </TextBlock>
+                        <!-- Color stripe: green when listening, gray when stopped -->
+                        <Border Grid.Column="0"
+                                Background="{Binding StatusDotColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
+                        <StackPanel Grid.Column="1" Margin="14,10,0,10" VerticalAlignment="Center">
+                          <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="PortDisplayText" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextPrimary}"
+                                       Tag="{Binding}"
+                                       PointerPressed="OnPortLabelPointerPressed"
+                                       ToolTip.Tip="点击修改端口号">
+                              <Run Text="Port "/><Run Text="{Binding Port, Mode=OneWay}"/>
+                            </TextBlock>
+                            <TextBox x:Name="PortEditBox" Width="80" FontSize="13" Padding="6,2"
+                                     Text="{Binding Port, Mode=TwoWay}"
+                                     KeyDown="OnPortEditKeyDown"
+                                     LostFocus="OnPortEditLostFocus"
+                                     IsVisible="False"/>
+                          </StackPanel>
                           <TextBlock FontSize="11" Foreground="{StaticResource TextTertiary}">
                             <Run Text="连接 "/><Run Text="{Binding TotalConnections, Mode=OneWay}"/><Run Text=" 次"/>
                           </TextBlock>
                         </StackPanel>
-                        <Button Grid.Column="2" Margin="0,0,6,0"
+                        <StackPanel Grid.Column="2" Margin="0,10,10,10" VerticalAlignment="Center">
+                          <TextBlock FontSize="10" Foreground="{StaticResource TextTertiary}">状态</TextBlock>
+                          <TextBlock FontSize="13" FontWeight="SemiBold"
+                                     Foreground="{Binding StatusDotColor, Converter={x:Static svc:HexToBrushConverter.Instance}}">
+                            <Run Text="{Binding StatusText}"/>
+                          </TextBlock>
+                        </StackPanel>
+                        <Button Grid.Column="3" Margin="14,0,6,0"
                                 Tag="{Binding}" Click="OnToggleListenerClick"
                                 Background="{Binding ToggleButtonColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"
                                 Content="{Binding ToggleButtonText}"/>
-                        <Button Grid.Column="3" Margin="0,0,0,0"
+                        <Button Grid.Column="4" Margin="0,0,0,0"
                                 Tag="{Binding}" Click="OnRemoveListenerClick"
                                 Classes="secondary"
                                 Content="删除"/>

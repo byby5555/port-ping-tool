@@ -13,12 +13,32 @@ namespace PortPingTool.Services;
 /// </summary>
 public sealed class PortListenerService : IDisposable, INotifyPropertyChanged
 {
-    public int Port { get; }
+    private int _port;
+    public int Port
+    {
+        get => _port;
+        set
+        {
+            if (_port == value) return;
+            if (IsListening)
+            {
+                // Refuse to change port while listening — caller should stop first.
+                OnPropertyChanged();
+                return;
+            }
+            _port = value;
+            OnPropertyChanged();
+        }
+    }
+
     public DateTime StartedAt { get; private set; }
     public bool IsListening => _listener is not null && _isRunning;
 
     // Status indicator color (exposed for XAML binding; avoids MultiBinding)
     public string StatusDotColor => IsListening ? "#34C759" : "#8E8E93";
+
+    // Status text (运行中 / 已停止)
+    public string StatusText => IsListening ? "● 运行中" : "○ 已停止";
 
     // Toggle button label: 启动 / 停止
     public string ToggleButtonText => IsListening ? "停止" : "启动";
@@ -43,7 +63,7 @@ public sealed class PortListenerService : IDisposable, INotifyPropertyChanged
     public event Action<ConnectionRecord>? ConnectionArrived;
     public event Action<string>? ErrorOccurred;
 
-    public PortListenerService(int port) => Port = port;
+    public PortListenerService(int port) => _port = port;
 
     public Task StartAsync()
     {
@@ -60,6 +80,7 @@ public sealed class PortListenerService : IDisposable, INotifyPropertyChanged
 
             OnPropertyChanged(nameof(IsListening));
             OnPropertyChanged(nameof(StatusDotColor));
+            OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(ToggleButtonText));
             OnPropertyChanged(nameof(ToggleButtonColor));
             return Task.CompletedTask;
@@ -117,6 +138,7 @@ public sealed class PortListenerService : IDisposable, INotifyPropertyChanged
             _cts = null;
             OnPropertyChanged(nameof(IsListening));
             OnPropertyChanged(nameof(StatusDotColor));
+            OnPropertyChanged(nameof(StatusText));
             OnPropertyChanged(nameof(ToggleButtonText));
             OnPropertyChanged(nameof(ToggleButtonColor));
         }
