@@ -37,8 +37,8 @@ public sealed class PortListenerService : IDisposable, INotifyPropertyChanged
     // Status indicator color (exposed for XAML binding; avoids MultiBinding)
     public string StatusDotColor => IsListening ? "#34C759" : "#8E8E93";
 
-    // Status text (运行中 / 已停止)
-    public string StatusText => IsListening ? "● 运行中" : "○ 已停止";
+    // Status text (监听中 / 已停止)
+    public string StatusText => IsListening ? "● 监听中" : "○ 已停止";
 
     // Toggle button label: 启动 / 停止
     public string ToggleButtonText => IsListening ? "停止" : "启动";

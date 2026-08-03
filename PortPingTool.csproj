@@ -18,6 +18,9 @@
     <!-- Avalonia -->
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
 
+    <!-- App icon (multi-size .ico, Windows-only). On non-Windows the property is ignored. -->
+    <ApplicationIcon Condition="'$(OS)' == 'Windows_NT'">Assets\icon.ico</ApplicationIcon>
+
     <!-- Single file + self-contained for release -->
     <PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
     <SelfContained Condition="'$(Configuration)' == 'Release'">true</SelfContained>
