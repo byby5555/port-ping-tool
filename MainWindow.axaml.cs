@@ -25,6 +25,15 @@ public partial class MainWindow : Window
 
         _ping.ResultArrived += OnPingResult;
         _ping.StateChanged += OnPingStateChanged;
+        _tcpPing.ResultArrived += OnPingResult;
+        _tcpPing.StateChanged += OnPingStateChanged;
+
+        // Scanner slider live update
+        ScanConcurrencySlider.PropertyChanged += (_, ev) =>
+        {
+            if (ev.Property.Name == "Value" && ScanConcurrencyText is not null)
+                ScanConcurrencyText.Text = ((int)ScanConcurrencySlider.Value).ToString();
+        };
 
         CountFixed.IsCheckedChanged   += (_, _) => { if (CountFixed.IsChecked == true) CountBox.IsEnabled = true; };
         CountContinuous.IsCheckedChanged += (_, _) => { if (CountContinuous.IsChecked == true) CountBox.IsEnabled = false; };
@@ -431,6 +440,20 @@ public partial class MainWindow : Window
 
     // ========================= Scanner =========================
 
+    private readonly RemotePortScannerService _remoteScanner = new();
+
+    private void OnScanConcurrencyChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
+    {
+        if (ScanConcurrencyText is not null)
+            ScanConcurrencyText.Text = ((int)e.NewValue).ToString();
+    }
+
+    private void OnScanCancelClick(object? sender, RoutedEventArgs e)
+    {
+        _remoteScanner.Cancel();
+        ScanStatusText.Text = "已取消";
+    }
+
     private async void OnScanClick(object? sender, RoutedEventArgs e)
     {
         var target = ScanTargetBox.Text?.Trim() ?? "";
@@ -439,27 +462,63 @@ public partial class MainWindow : Window
             ScanStatusText.Text = "请输入目标";
             return;
         }
+        var portSpec = ScanPortsBox.Text?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(portSpec))
+        {
+            ScanStatusText.Text = "请输入端口";
+            return;
+        }
+        var ports = PortRangeParser.Parse(portSpec);
+        if (ports.Count == 0)
+        {
+            ScanStatusText.Text = "端口解析失败";
+            return;
+        }
+        int concurrency = (int)ScanConcurrencySlider.Value;
+
+        bool isLocal = target.Equals("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                    || target.Equals("localhost", StringComparison.OrdinalIgnoreCase)
+                    || target.Equals("0.0.0.0", StringComparison.OrdinalIgnoreCase);
+
         ScanBtn.IsEnabled = false;
-        ScanStatusText.Text = "扫描中…";
+        ScanCancelBtn.IsEnabled = !isLocal;
+        ScanStatusText.Text = isLocal ? "读取 netstat…" : $"扫描中… ({ports.Count} 个端口, 并发 {concurrency})";
         _scanResults.Clear();
+        ScanProgressBar.Value = 0;
+
         try
         {
-            // For now this only enumerates LISTENING sockets on the LOCAL
-            // machine (netstat -ano). The target field is accepted for
-            // forward compatibility — remote scanning would need a different
-            // transport (TCP connect probe per port) and is out of scope for
-            // this version. We just inform the user of the actual scope.
-            bool isLocal = target is "127.0.0.1" or "localhost" or "0.0.0.0";
-            if (!isLocal)
-            {
-                ScanStatusText.Text = "暂仅支持本机扫描,目标已忽略";
-            }
-            var rows = await LocalPortScannerService.ScanAsync();
-            foreach (var row in rows) _scanResults.Add(row);
             if (isLocal)
-                ScanStatusText.Text = $"找到 {rows.Count} 个 LISTEN 端口";
+            {
+                // Local: filter netstat output to the user-supplied port set
+                var rows = await LocalPortScannerService.ScanAsync(ports);
+                foreach (var row in rows) _scanResults.Add(row);
+                ScanProgressBar.Value = 1;
+                ScanStatusText.Text = $"本机 LISTEN 中匹配端口 {rows.Count} / {ports.Count}";
+            }
             else
-                ScanStatusText.Text = $"找到 {rows.Count} 个本机 LISTEN 端口(远程暂未实现)";
+            {
+                // Remote: TCP connect probe each port
+                var open = await _remoteScanner.ScanAsync(
+                    host: target,
+                    ports: ports,
+                    concurrency: concurrency,
+                    timeoutMs: 1500,
+                    onProgress: p => Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        ScanProgressBar.Value = p.Fraction;
+                        ScanStatusText.Text = p.Summary;
+                        // Re-bind incrementally so user sees open ports appear
+                        if (_scanResults.Count != _remoteScanner.OpenPorts.Count)
+                        {
+                            _scanResults.Clear();
+                            foreach (var r in _remoteScanner.OpenPorts.OrderBy(x => x.LocalPort))
+                                _scanResults.Add(r);
+                        }
+                    }));
+                foreach (var r in open) _scanResults.Add(r); // ensure final state is consistent
+                ScanStatusText.Text = $"完成: 开放 {open.Count} / {ports.Count}";
+            }
         }
         catch (Exception ex)
         {
@@ -468,6 +527,7 @@ public partial class MainWindow : Window
         finally
         {
             ScanBtn.IsEnabled = true;
+            ScanCancelBtn.IsEnabled = false;
         }
     }
 

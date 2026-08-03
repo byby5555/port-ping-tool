@@ -1,20 +1,24 @@
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Text.RegularExpressions;
 
 namespace PortPingTool.Services;
 
 /// <summary>
-/// Scans the local machine for listening TCP / UDP ports by parsing
-/// the output of 'netstat -ano'. No admin rights required because
-/// the query runs in user space and only lists sockets this user
-/// can see.
+/// Scans the local machine for LISTENING TCP ports by parsing
+/// the output of 'netstat -ano'.
 ///
-/// Output rows: LocalAddress, RemoteAddress, State, Protocol, Pid.
+/// The set of ports to enumerate is supplied by the caller — we
+/// filter netstat's output down to that set so the UI can show only
+/// what the user asked for (and avoid dumping 60+ entries when they
+/// only care about port 80).
+///
+/// If 'portFilter' is empty, ALL listening ports are returned.
 /// </summary>
 public static class LocalPortScannerService
 {
-    public static async Task<IReadOnlyList<LocalPortRow>> ScanAsync(CancellationToken ct = default)
+    public static async Task<IReadOnlyList<LocalPortRow>> ScanAsync(
+        IReadOnlyCollection<int>? portFilter = null,
+        CancellationToken ct = default)
     {
         var psi = new ProcessStartInfo
         {
@@ -25,7 +29,6 @@ public static class LocalPortScannerService
             UseShellExecute = false,
             CreateNoWindow = true,
         };
-        // On Windows, force netstat to use the OEM/UTF-8 output
         psi.StandardOutputEncoding = System.Text.Encoding.UTF8;
 
         try
@@ -33,26 +36,22 @@ public static class LocalPortScannerService
             using var proc = Process.Start(psi);
             if (proc is null) return Array.Empty<LocalPortRow>();
 
-            // Read all output asynchronously so we can respect the cancellation token
             var outputTask = proc.StandardOutput.ReadToEndAsync(ct);
             await proc.WaitForExitAsync(ct).ConfigureAwait(false);
             var output = await outputTask.ConfigureAwait(false);
 
-            return ParseNetstat(output);
+            return ParseNetstat(output, portFilter);
         }
         catch (OperationCanceledException) { return Array.Empty<LocalPortRow>(); }
-        catch (Exception)
+        catch
         {
-            // netstat is missing (e.g. non-Windows). Return empty.
             return Array.Empty<LocalPortRow>();
         }
     }
 
-    private static List<LocalPortRow> ParseNetstat(string output)
+    private static List<LocalPortRow> ParseNetstat(
+        string output, IReadOnlyCollection<int>? portFilter)
     {
-        // Example line:
-        //   TCP    0.0.0.0:135       0.0.0.0:0       LISTENING       4
-        //   UDP    0.0.0.0:5353      *:*                              1234
         var rows = new List<LocalPortRow>();
         var regex = new Regex(
             @"^\s*(TCP|UDP)\s+(\S+)\s+(\S+)\s+(\S*)\s*(\d+)\s*$",
@@ -66,8 +65,11 @@ public static class LocalPortScannerService
             var state = m.Groups[4].Value;
             var pid = int.TryParse(m.Groups[5].Value, out var p) ? p : 0;
 
-            // Keep only LISTENING for TCP, and ignore UDP wildcard (*:*)
+            // Only TCP LISTENING. UDP has no LISTEN state.
             if (proto == "TCP" && state != "LISTENING") continue;
+
+            if (portFilter is { Count: > 0 } && !portFilter.Contains(local.port))
+                continue;
 
             rows.Add(new LocalPortRow
             {
@@ -75,12 +77,12 @@ public static class LocalPortScannerService
                 LocalAddress = local.address,
                 LocalPort = local.port,
                 RemoteAddress = remote.address,
-                State = string.IsNullOrEmpty(state) ? "—" : state,
+                State = string.IsNullOrEmpty(state) ? "OPEN" : state,
                 Pid = pid,
+                IsOpen = true,
+                Source = "本机",
             });
         }
-
-        // Sort by port for stable display
         return rows.OrderBy(r => r.LocalPort).ToList();
     }
 
@@ -92,7 +94,6 @@ public static class LocalPortScannerService
         var addr = s.Substring(0, idx);
         var portStr = s.Substring(idx + 1);
         var port = int.TryParse(portStr, out var p) ? p : 0;
-        // Normalize "*" / "0.0.0.0" to a friendly label
         if (addr == "*" || addr == "0.0.0.0") addr = "0.0.0.0";
         return (addr, port);
     }
@@ -106,10 +107,14 @@ public sealed class LocalPortRow
     public string RemoteAddress { get; init; } = "—";
     public string State { get; init; } = "—";
     public int Pid { get; init; }
+    public bool IsOpen { get; init; }
+    /// <summary>"本机" or "远端" — which scanner found this row.</summary>
+    public string Source { get; init; } = "本机";
 
-    public string DisplayPort => $"{LocalPort}";
-    public string DisplayAddress => LocalAddress == "0.0.0.0" ? "全部" : LocalAddress;
-    public string DisplayProtocol => Protocol;
+    public string DisplayPort => LocalPort.ToString();
+    public string DisplayAddress =>
+        LocalAddress == "0.0.0.0" ? "全部" : LocalAddress;
     public string DisplayState => State;
     public string DisplayPid => Pid > 0 ? Pid.ToString() : "—";
+    public string DisplaySource => Source;
 }
