@@ -11,13 +11,16 @@ public partial class MainWindow : Window
 {
     private readonly ObservableCollection<PortListenerService> _listeners = new();
     private readonly ObservableCollection<ConnectionRecord> _connectionLog = new();
+    private readonly ObservableCollection<LocalPortRow> _scanResults = new();
     private readonly PingService _ping = new();
+    private readonly TcpPingService _tcpPing = new();
 
     public MainWindow()
     {
         InitializeComponent();
         ListenerList.ItemsSource = _listeners;
         ConnectionLog.ItemsSource = _connectionLog;
+        ScanResults.ItemsSource = _scanResults;
         PingResults.ItemsSource = _ping.Results;
 
         _ping.ResultArrived += OnPingResult;
@@ -215,19 +218,41 @@ public partial class MainWindow : Window
 
     // ========================= Ping =========================
 
+    // Active ping service: ICMP or TCP, depending on Mode radio.
+    private PingService? ActivePing => ModeTcp.IsChecked == true ? null : _ping;
+    private TcpPingService? ActiveTcpPing => ModeTcp.IsChecked == true ? _tcpPing : null;
+
+    private int CurrentIntervalMs()
+    {
+        if (Interval1.IsChecked == true) return 1;
+        if (Interval10.IsChecked == true) return 10;
+        if (Interval100.IsChecked == true) return 100;
+        return 1000;
+    }
+
+    private void OnModeChanged(object? sender, RoutedEventArgs e)
+    {
+        // Enable / disable the port input depending on mode
+        if (PingPortBox is null) return;
+        bool isTcp = ModeTcp.IsChecked == true;
+        PingPortBox.IsEnabled = isTcp;
+    }
+
     private void OnIntervalChanged(object? sender, RoutedEventArgs e)
     {
-        if (_ping.IsRunning) return;
-        _ping.IntervalMode = Interval1000.IsChecked == true
-            ? PingIntervalMode.Standard1000
-            : PingIntervalMode.Fast100;
+        // Apply to whichever service might be running (only one runs at a time)
+        int ms = CurrentIntervalMs();
+        if (!_ping.IsRunning) _ping.IntervalMs = ms;
+        if (!_tcpPing.IsRunning) _tcpPing.IntervalMs = ms;
     }
 
     private async void OnPingToggleClick(object? sender, RoutedEventArgs e)
     {
-        if (_ping.IsRunning)
+        bool isTcp = ModeTcp.IsChecked == true;
+
+        if (isTcp ? _tcpPing.IsRunning : _ping.IsRunning)
         {
-            _ping.Stop();
+            if (isTcp) _tcpPing.Stop(); else _ping.Stop();
             return;
         }
         var host = PingHostBox.Text?.Trim() ?? "";
@@ -246,29 +271,49 @@ public partial class MainWindow : Window
             }
             count = n;
         }
-        _ping.IntervalMode = Interval1000.IsChecked == true
-            ? PingIntervalMode.Standard1000
-            : PingIntervalMode.Fast100;
-        _ping.Results.Clear();
-        _ping.LostResults.Clear();
-        await _ping.StartAsync(host, count);
+        int port = 0;
+        if (isTcp)
+        {
+            if (!int.TryParse(PingPortBox.Text?.Trim(), out port) || port <= 0 || port > 65535)
+            {
+                AppendLog("[错误] TCP 模式需要合法端口");
+                return;
+            }
+        }
+
+        if (isTcp)
+        {
+            _tcpPing.IntervalMs = CurrentIntervalMs();
+            await _tcpPing.StartAsync(host, port, count);
+        }
+        else
+        {
+            _ping.IntervalMs = CurrentIntervalMs();
+            await _ping.StartAsync(host, count);
+        }
     }
 
     private void OnPingResult(PingRecord r)
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            // Add to "全部" list, capped at 1000 (oldest dropped)
-            _ping.Results.Add(r);
-            while (_ping.Results.Count > 1000) _ping.Results.RemoveAt(0);
-
-            // Add to "丢包" list (if failed), capped at 1000
-            if (!r.Success)
+            // Identify which service fired (we subscribe to both).
+            // In practice we route via the active service: by the time the
+            // event fires, exactly one of them is running. We can detect
+            // which by checking the current sender via reflection-free
+            // proxy: just add to whichever list does NOT already contain
+            // this record (cheap O(n) over 1000, but we use IsRunning).
+            // Simpler: add to BOTH; the UI shows whichever collection
+            // is currently bound, so cross-talk is invisible.
+            // Cleaner: route by checking which service is running.
+            if (_ping.IsRunning)
             {
-                _ping.LostResults.Add(r);
-                while (_ping.LostResults.Count > 1000) _ping.LostResults.RemoveAt(0);
+                AppendToResults(_ping.Results, _ping.LostResults, r);
             }
-
+            else if (_tcpPing.IsRunning)
+            {
+                AppendToResults(_tcpPing.Results, _tcpPing.LostResults, r);
+            }
             // Auto-scroll only when "全部" is active
             if (ShowAllRadio.IsChecked == true)
                 PingResultScroller.ScrollToEnd();
@@ -277,25 +322,50 @@ public partial class MainWindow : Window
         });
     }
 
+    private static void AppendToResults(
+        System.Collections.ObjectModel.ObservableCollection<PingRecord> results,
+        System.Collections.ObjectModel.ObservableCollection<PingRecord> lost,
+        PingRecord r)
+    {
+        results.Add(r);
+        while (results.Count > 1000) results.RemoveAt(0);
+        if (!r.Success)
+        {
+            lost.Add(r);
+            while (lost.Count > 1000) lost.RemoveAt(0);
+        }
+    }
+
     private void OnPingViewChanged(object? sender, RoutedEventArgs e)
     {
-        // Don't early-out on sender type — we want this handler to run
-        // regardless of which radio fired the event.
-        bool showingLost = ShowLostRadio.IsChecked == true;
-        // Force-clear-then-set to ensure the ItemsControl rebinds even if
-        // ObservableCollection events are swallowed by Avalonia's binding cache.
+        // Identify the target view by SENDER, not by IsChecked state. The
+        // latter has a race during radio switches where both radions briefly
+        // show IsChecked == false, and we can't tell which view the user
+        // is switching into.
+        bool showingLost = sender == ShowLostRadio;
+        var activeResults = ActivePing?.Results ?? ActiveTcpPing?.Results;
+        var activeLost    = ActivePing?.LostResults ?? ActiveTcpPing?.LostResults;
+        if (activeResults is null || activeLost is null) return;
+        // Re-bind to the new source. We null-then-set to force the
+        // ItemsControl to drop any cached DataTemplate / virtualization
+        // state from the previous collection.
         PingResults.ItemsSource = null;
-        PingResults.ItemsSource = showingLost ? _ping.LostResults : _ping.Results;
+        PingResults.ItemsSource = showingLost ? activeLost : activeResults;
         PingResultScroller.ScrollToEnd();
-        UpdateStats();             // <-- also update top 4 stat cards
+        UpdateStats();
         UpdatePingListCount();
     }
 
     private void UpdatePingListCount()
     {
         bool showingLost = ShowLostRadio.IsChecked == true;
-        var count = showingLost ? _ping.LostResults.Count : _ping.Results.Count;
-        var total = showingLost ? _ping.Stats.Lost : _ping.Stats.Sent;
+        var activePing = ActivePing ?? (object)ActiveTcpPing!;
+        int count = showingLost
+            ? (ActivePing?.LostResults.Count ?? _tcpPing.LostResults.Count)
+            : (ActivePing?.Results.Count     ?? _tcpPing.Results.Count);
+        int total = showingLost
+            ? (ActivePing?.Stats.Lost        ?? _tcpPing.Stats.Lost)
+            : (ActivePing?.Stats.Sent        ?? _tcpPing.Stats.Sent);
         PingListCount.Text = $"显示 {count} / {total}";
     }
 
@@ -304,7 +374,31 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             PingToggleBtn.Content = running ? "停止" : "开始";
-            if (running) UpdateStats();
+
+            // Re-bind ItemsSource to whichever service just became active so
+            // the user sees the right list.
+            var activePing = ActivePing;
+            var activeTcp  = ActiveTcpPing;
+            if (activePing is not null)
+                PingResults.ItemsSource = ShowLostRadio.IsChecked == true
+                    ? activePing.LostResults : activePing.Results;
+            else if (activeTcp is not null)
+                PingResults.ItemsSource = ShowLostRadio.IsChecked == true
+                    ? activeTcp.LostResults : activeTcp.Results;
+
+            if (running)
+            {
+                // Starting: clear stat cards and results so the panel starts clean.
+                // This is also the recovery path if a previous bug left the view stale.
+                if (activePing is not null) { activePing.Results.Clear(); activePing.LostResults.Clear(); }
+                if (activeTcp  is not null) { activeTcp.Results.Clear();  activeTcp.LostResults.Clear(); }
+                StatSent.Text  = "0";
+                StatRecv.Text  = "0";
+                StatLoss.Text  = "0.0%";
+                StatAvg.Text   = "0 ms";
+            }
+            // On stop: keep the results so the user can review the stats.
+            UpdateStats();
             UpdatePingListCount();
         });
     }
@@ -332,6 +426,48 @@ public partial class MainWindow : Window
             StatRecv.Text = s.Received.ToString();
             StatLoss.Text = $"{s.LossRate:F1}%";
             StatAvg.Text  = $"{s.AvgLatency:F0} ms";
+        }
+    }
+
+    // ========================= Scanner =========================
+
+    private async void OnScanClick(object? sender, RoutedEventArgs e)
+    {
+        var target = ScanTargetBox.Text?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(target))
+        {
+            ScanStatusText.Text = "请输入目标";
+            return;
+        }
+        ScanBtn.IsEnabled = false;
+        ScanStatusText.Text = "扫描中…";
+        _scanResults.Clear();
+        try
+        {
+            // For now this only enumerates LISTENING sockets on the LOCAL
+            // machine (netstat -ano). The target field is accepted for
+            // forward compatibility — remote scanning would need a different
+            // transport (TCP connect probe per port) and is out of scope for
+            // this version. We just inform the user of the actual scope.
+            bool isLocal = target is "127.0.0.1" or "localhost" or "0.0.0.0";
+            if (!isLocal)
+            {
+                ScanStatusText.Text = "暂仅支持本机扫描,目标已忽略";
+            }
+            var rows = await LocalPortScannerService.ScanAsync();
+            foreach (var row in rows) _scanResults.Add(row);
+            if (isLocal)
+                ScanStatusText.Text = $"找到 {rows.Count} 个 LISTEN 端口";
+            else
+                ScanStatusText.Text = $"找到 {rows.Count} 个本机 LISTEN 端口(远程暂未实现)";
+        }
+        catch (Exception ex)
+        {
+            ScanStatusText.Text = $"扫描失败: {ex.Message}";
+        }
+        finally
+        {
+            ScanBtn.IsEnabled = true;
         }
     }
 
