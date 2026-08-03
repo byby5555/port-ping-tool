@@ -79,6 +79,18 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnRemoveListenerClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || btn.Tag is not PortListenerService svc) return;
+        if (svc.IsListening)
+        {
+            AppendLog($"[提示] 端口 {svc.Port} 正在监听,先停止再删除");
+            return;
+        }
+        _listeners.Remove(svc);
+        AppendLog($"[删除] 端口 {svc.Port} 已从列表移除");
+    }
+
     // ========================= Tester =========================
 
     private async void OnTestPortClick(object? sender, RoutedEventArgs e)
