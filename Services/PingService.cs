@@ -19,6 +19,8 @@ public sealed class PingService : IDisposable
     public int IntervalMs { get; set; } = 1000;
 
     public string Host { get; private set; } = "127.0.0.1";
+    /// <summary>The first IP address the host resolved to. Cached so we don't re-resolve every probe.</summary>
+    public string? ResolvedIp { get; private set; }
     public bool IsRunning { get; private set; }
 
     public ObservableCollection<PingRecord> Results { get; } = new();
@@ -35,6 +37,7 @@ public sealed class PingService : IDisposable
     {
         if (IsRunning) return;
         Host = host;
+        ResolvedIp = await ResolveFirstAsync(host).ConfigureAwait(false);
         ResetStats();
 
         _cts = new CancellationTokenSource();
@@ -79,6 +82,21 @@ public sealed class PingService : IDisposable
         StateChanged?.Invoke(false);
     }
 
+    private static async Task<string?> ResolveFirstAsync(string host)
+    {
+        if (System.Net.IPAddress.TryParse(host, out _)) return host;
+        try
+        {
+            var addrs = await System.Net.Dns.GetHostAddressesAsync(host).ConfigureAwait(false);
+            var first = addrs.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+            return first?.ToString() ?? addrs.FirstOrDefault()?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     private async Task<PingRecord> SendOneAsync(CancellationToken ct)
     {
         try
@@ -92,6 +110,7 @@ public sealed class PingService : IDisposable
                 Success = reply.Status == IPStatus.Success,
                 LatencyMs = reply.Status == IPStatus.Success ? (long)reply.RoundtripTime : 0,
                 Status = reply.Status.ToString(),
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
         catch (PingException ex)
@@ -103,6 +122,7 @@ public sealed class PingService : IDisposable
                 Success = false,
                 LatencyMs = 0,
                 Status = ex.InnerException?.Message ?? ex.Message,
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
         catch (Exception ex)
@@ -114,6 +134,7 @@ public sealed class PingService : IDisposable
                 Success = false,
                 LatencyMs = 0,
                 Status = ex.Message,
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
     }
@@ -157,11 +178,14 @@ public sealed class PingRecord
     public bool Success { get; init; }
     public long LatencyMs { get; init; }
     public string Status { get; init; } = string.Empty;
+    /// <summary>The IP that the hostname resolved to (if any). Empty if already an IP literal or DNS failed.</summary>
+    public string ResolvedIp { get; init; } = "";
 
     public string TimeDisplay => Timestamp.ToString("HH:mm:ss.fff");
+    public string IpTag => string.IsNullOrEmpty(ResolvedIp) ? "" : $" ({ResolvedIp})";
     public string Display => Success
-        ? $"[{TimeDisplay}] seq={Seq}  time={LatencyMs} ms"
-        : $"[{TimeDisplay}] seq={Seq}  *  timeout ({Status})";
+        ? $"[{TimeDisplay}] seq={Seq}  time={LatencyMs} ms{IpTag}"
+        : $"[{TimeDisplay}] seq={Seq}  *  timeout ({Status}){IpTag}";
 
     // For XAML: pick color based on success
     public string RowColor => Success ? "#6E6E73" : "#FF3B30";

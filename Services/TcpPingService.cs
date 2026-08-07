@@ -20,6 +20,8 @@ public sealed class TcpPingService : IDisposable
     public int IntervalMs { get; set; } = 1000;
     public string Host { get; private set; } = "127.0.0.1";
     public int Port { get; private set; } = 443;
+    /// <summary>The first IP the host resolved to. Cached.</summary>
+    public string? ResolvedIp { get; private set; }
     public bool IsRunning { get; private set; }
 
     public ObservableCollection<PingRecord> Results { get; } = new();
@@ -34,6 +36,7 @@ public sealed class TcpPingService : IDisposable
         if (IsRunning) return;
         Host = host;
         Port = port;
+        ResolvedIp = await ResolveFirstAsync(host).ConfigureAwait(false);
         ResetStats();
 
         _cts = new CancellationTokenSource();
@@ -96,6 +99,7 @@ public sealed class TcpPingService : IDisposable
                 Success = true,
                 LatencyMs = sw.ElapsedMilliseconds,
                 Status = "Connected",
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
         catch (OperationCanceledException)
@@ -108,6 +112,7 @@ public sealed class TcpPingService : IDisposable
                 Success = false,
                 LatencyMs = 0,
                 Status = "TimedOut",
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
         catch (SocketException ex)
@@ -120,6 +125,7 @@ public sealed class TcpPingService : IDisposable
                 Success = false,
                 LatencyMs = 0,
                 Status = ex.SocketErrorCode.ToString(),
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
         catch (Exception ex)
@@ -132,6 +138,7 @@ public sealed class TcpPingService : IDisposable
                 Success = false,
                 LatencyMs = 0,
                 Status = ex.Message,
+                ResolvedIp = ResolvedIp ?? "",
             };
         }
     }
@@ -166,4 +173,19 @@ public sealed class TcpPingService : IDisposable
     }
 
     public void Dispose() => Stop();
+
+    private static async Task<string?> ResolveFirstAsync(string host)
+    {
+        if (System.Net.IPAddress.TryParse(host, out _)) return host;
+        try
+        {
+            var addrs = await System.Net.Dns.GetHostAddressesAsync(host).ConfigureAwait(false);
+            var first = addrs.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
+            return first?.ToString() ?? addrs.FirstOrDefault()?.ToString();
+        }
+        catch
+        {
+            return null;
+        }
+    }
 }

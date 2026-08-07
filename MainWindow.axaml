@@ -102,11 +102,45 @@
   </Window.Styles>
 
   <Grid Margin="20">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="*" MinWidth="380"/>
-      <ColumnDefinition Width="20"/>
-      <ColumnDefinition Width="*" MinWidth="380"/>
-    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+    </Grid.RowDefinitions>
+
+    <!-- Top-right network info card (auto-detected public IP, geo, ISP) -->
+    <Border Grid.Row="0" Classes="card" Margin="0,0,0,14" Padding="14,10">
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto"/>
+          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="Auto"/>
+        </Grid.ColumnDefinitions>
+        <StackPanel Grid.Column="0" Orientation="Horizontal">
+          <TextBlock Text="🌐" FontSize="14" VerticalAlignment="Center" Margin="0,0,8,0"/>
+          <TextBlock Text="网络信息" FontWeight="SemiBold" FontSize="13"
+                     Foreground="{StaticResource TextPrimary}" VerticalAlignment="Center"/>
+        </StackPanel>
+        <StackPanel Grid.Column="1" x:Name="NetInfoPanel" Margin="20,0,0,0"
+                    VerticalAlignment="Center">
+          <TextBlock x:Name="NetInfoOutside" FontSize="12" FontFamily="Cascadia Mono, Consolas"
+                     Foreground="{StaticResource TextSecondary}">正在查询公网信息…</TextBlock>
+          <TextBlock x:Name="NetInfoChina" FontSize="12" FontFamily="Cascadia Mono, Consolas"
+                     Foreground="{StaticResource TextSecondary}" Margin="0,2,0,0">国内侧查询中…</TextBlock>
+          <TextBlock x:Name="NetInfoProxy" FontSize="12" FontFamily="Cascadia Mono, Consolas"
+                     Foreground="{StaticResource TextTertiary}" Margin="0,2,0,0">代理状态: 未知</TextBlock>
+        </StackPanel>
+        <Button Grid.Column="2" x:Name="NetInfoRefreshBtn" Classes="secondary"
+                Content="刷新" Click="OnNetInfoRefreshClick"/>
+      </Grid>
+    </Border>
+
+    <!-- Main two-column body -->
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" MinWidth="380"/>
+        <ColumnDefinition Width="20"/>
+        <ColumnDefinition Width="*" MinWidth="380"/>
+      </Grid.ColumnDefinitions>
 
     <!-- ====================== LEFT: PORT (Listen + Test) ====================== -->
     <Grid Grid.Column="0">
@@ -502,6 +536,7 @@
           </Grid>
         </Grid>
       </Border>
+    </Grid>
     </Grid>
   </Grid>
 </Window>
