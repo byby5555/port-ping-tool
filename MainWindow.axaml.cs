@@ -14,6 +14,9 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<LocalPortRow> _scanResults = new();
     private readonly PingService _ping = new();
     private readonly TcpPingService _tcpPing = new();
+    private readonly PublicIpService _publicIp = new();
+    private PublicIpInfo? _outsideInfo;
+    private PublicIpInfo? _chinaInfo;
 
     public MainWindow()
     {
@@ -37,6 +40,59 @@ public partial class MainWindow : Window
 
         CountFixed.IsCheckedChanged   += (_, _) => { if (CountFixed.IsChecked == true) CountBox.IsEnabled = true; };
         CountContinuous.IsCheckedChanged += (_, _) => { if (CountContinuous.IsChecked == true) CountBox.IsEnabled = false; };
+
+        // Fire public-IP lookup on startup
+        _ = RefreshPublicIpAsync();
+    }
+
+    // ========================= Network info (top-right card) =========================
+
+    private async Task RefreshPublicIpAsync()
+    {
+        NetInfoOutside.Text = "正在查询公网信息(国际)…";
+        NetInfoChina.Text   = "国内侧查询中…";
+        NetInfoProxy.Text   = "代理状态: 查询中…";
+
+        var outsideTask = _publicIp.LookupAsync();
+        var chinaTask   = _publicIp.LookupChinaAsync();
+        await Task.WhenAll(outsideTask, chinaTask).ConfigureAwait(false);
+        _outsideInfo = outsideTask.Result;
+        _chinaInfo   = chinaTask.Result;
+
+        Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!string.IsNullOrEmpty(_outsideInfo.Error))
+                NetInfoOutside.Text = $"公网(国际): 查询失败 — {_outsideInfo.Error}";
+            else
+                NetInfoOutside.Text = $"公网(国际): {_outsideInfo.Ip}  ·  {_outsideInfo.Location}  ·  {_outsideInfo.Operator}";
+
+            if (!string.IsNullOrEmpty(_chinaInfo.Error))
+                NetInfoChina.Text = $"国内侧: 查询失败 — {_chinaInfo.Error}";
+            else
+                NetInfoChina.Text = $"国内侧: {_chinaInfo.Ip}  ·  {_chinaInfo.Location}  ·  {_chinaInfo.Operator}";
+
+            if (string.IsNullOrEmpty(_outsideInfo.Ip) || string.IsNullOrEmpty(_chinaInfo.Ip))
+            {
+                NetInfoProxy.Text = "代理状态: 未知(IP 查询失败)";
+            }
+            else if (!string.Equals(_outsideInfo.Ip, _chinaInfo.Ip, StringComparison.Ordinal))
+            {
+                NetInfoProxy.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#FF9500"));
+                NetInfoProxy.Text = $"⚠ 检测到代理 — 国际 {_outsideInfo.Ip} ≠ 国内 {_chinaInfo.Ip}";
+            }
+            else
+            {
+                NetInfoProxy.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#34C759"));
+                NetInfoProxy.Text = $"代理状态: 未检测到代理(出口 IP 一致 = {_outsideInfo.Ip})";
+            }
+        });
+    }
+
+    private async void OnNetInfoRefreshClick(object? sender, RoutedEventArgs e)
+    {
+        NetInfoRefreshBtn.IsEnabled = false;
+        try { await RefreshPublicIpAsync(); }
+        finally { NetInfoRefreshBtn.IsEnabled = true; }
     }
 
     // ========================= Listener =========================
