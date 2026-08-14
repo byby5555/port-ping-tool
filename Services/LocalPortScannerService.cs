@@ -16,7 +16,7 @@ namespace PortPingTool.Services;
 /// </summary>
 public static class LocalPortScannerService
 {
-    public static async Task<IReadOnlyList<LocalPortRow>> ScanAsync(
+    public static async Task<LocalScanResult> ScanAsync(
         IReadOnlyCollection<int>? portFilter = null,
         CancellationToken ct = default)
     {
@@ -34,18 +34,22 @@ public static class LocalPortScannerService
         try
         {
             using var proc = Process.Start(psi);
-            if (proc is null) return Array.Empty<LocalPortRow>();
+            if (proc is null)
+                return new LocalScanResult(Array.Empty<LocalPortRow>(), "无法启动 netstat 进程");
 
             var outputTask = proc.StandardOutput.ReadToEndAsync(ct);
             await proc.WaitForExitAsync(ct).ConfigureAwait(false);
             var output = await outputTask.ConfigureAwait(false);
 
-            return ParseNetstat(output, portFilter);
+            return new LocalScanResult(ParseNetstat(output, portFilter), "");
         }
-        catch (OperationCanceledException) { return Array.Empty<LocalPortRow>(); }
-        catch
+        catch (OperationCanceledException)
         {
-            return Array.Empty<LocalPortRow>();
+            return new LocalScanResult(Array.Empty<LocalPortRow>(), "已取消");
+        }
+        catch (Exception ex)
+        {
+            return new LocalScanResult(Array.Empty<LocalPortRow>(), ex.Message);
         }
     }
 
@@ -97,6 +101,12 @@ public static class LocalPortScannerService
         if (addr == "*" || addr == "0.0.0.0") addr = "0.0.0.0";
         return (addr, port);
     }
+}
+
+/// <summary>Result of a local port scan: the matching rows plus an optional error message.</summary>
+public sealed record LocalScanResult(IReadOnlyList<LocalPortRow> Rows, string Error)
+{
+    public bool HasError => !string.IsNullOrEmpty(Error);
 }
 
 public sealed class LocalPortRow
