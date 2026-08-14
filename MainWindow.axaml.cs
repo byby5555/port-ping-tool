@@ -12,9 +12,11 @@ public partial class MainWindow : Window
     private readonly ObservableCollection<PortListenerService> _listeners = new();
     private readonly ObservableCollection<ConnectionRecord> _connectionLog = new();
     private readonly ObservableCollection<LocalPortRow> _scanResults = new();
+    private readonly ObservableCollection<string> _logLines = new();
     private readonly PingService _ping = new();
     private readonly TcpPingService _tcpPing = new();
     private readonly PublicIpService _publicIp = new();
+    private const int LogMaxLines = 500;
     private PublicIpInfo? _outsideInfo;
     private PublicIpInfo? _chinaInfo;
 
@@ -25,10 +27,11 @@ public partial class MainWindow : Window
         ConnectionLog.ItemsSource = _connectionLog;
         ScanResults.ItemsSource = _scanResults;
         PingResults.ItemsSource = _ping.Results;
+        LogItems.ItemsSource = _logLines;
 
-        _ping.ResultArrived += OnPingResult;
+        _ping.ResultArrived += OnPingResultIcmp;
         _ping.StateChanged += OnPingStateChanged;
-        _tcpPing.ResultArrived += OnPingResult;
+        _tcpPing.ResultArrived += OnPingResultTcp;
         _tcpPing.StateChanged += OnPingStateChanged;
 
         // Scanner slider live update
@@ -287,6 +290,9 @@ public partial class MainWindow : Window
     private PingService? ActivePing => ModeTcp.IsChecked == true ? null : _ping;
     private TcpPingService? ActiveTcpPing => ModeTcp.IsChecked == true ? _tcpPing : null;
 
+    /// <summary>Stats object for the currently active ping service. Returns ICMP stats as a sane default.</summary>
+    private PingStatistics ActiveStats => ModeTcp.IsChecked == true ? _tcpPing.Stats : _ping.Stats;
+
     private int CurrentIntervalMs()
     {
         if (Interval1.IsChecked == true) return 1;
@@ -301,6 +307,11 @@ public partial class MainWindow : Window
         if (PingPortBox is null) return;
         bool isTcp = ModeTcp.IsChecked == true;
         PingPortBox.IsEnabled = isTcp;
+
+        // Switching mode while a ping is running would otherwise leave two
+        // services in flight at once. Stop whichever is no longer selected.
+        if (isTcp && _ping.IsRunning) _ping.Stop();
+        if (!isTcp && _tcpPing.IsRunning) _tcpPing.Stop();
     }
 
     private void OnIntervalChanged(object? sender, RoutedEventArgs e)
@@ -358,28 +369,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnPingResult(PingRecord r)
+    private void OnPingResultIcmp(PingRecord r) => HandlePingResult(r, _ping.Results, _ping.LostResults);
+    private void OnPingResultTcp(PingRecord r) => HandlePingResult(r, _tcpPing.Results, _tcpPing.LostResults);
+
+    private void HandlePingResult(
+        PingRecord r,
+        System.Collections.ObjectModel.ObservableCollection<PingRecord> results,
+        System.Collections.ObjectModel.ObservableCollection<PingRecord> lost)
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            // Identify which service fired (we subscribe to both).
-            // In practice we route via the active service: by the time the
-            // event fires, exactly one of them is running. We can detect
-            // which by checking the current sender via reflection-free
-            // proxy: just add to whichever list does NOT already contain
-            // this record (cheap O(n) over 1000, but we use IsRunning).
-            // Simpler: add to BOTH; the UI shows whichever collection
-            // is currently bound, so cross-talk is invisible.
-            // Cleaner: route by checking which service is running.
-            if (_ping.IsRunning)
-            {
-                AppendToResults(_ping.Results, _ping.LostResults, r);
-            }
-            else if (_tcpPing.IsRunning)
-            {
-                AppendToResults(_tcpPing.Results, _tcpPing.LostResults, r);
-            }
-            // Auto-scroll only when "全部" is active
+            AppendToResults(results, lost, r);
             if (ShowAllRadio.IsChecked == true)
                 PingResultScroller.ScrollToEnd();
             UpdateStats();
@@ -424,13 +424,11 @@ public partial class MainWindow : Window
     private void UpdatePingListCount()
     {
         bool showingLost = ShowLostRadio.IsChecked == true;
-        var activePing = ActivePing ?? (object)ActiveTcpPing!;
-        int count = showingLost
-            ? (ActivePing?.LostResults.Count ?? _tcpPing.LostResults.Count)
-            : (ActivePing?.Results.Count     ?? _tcpPing.Results.Count);
-        int total = showingLost
-            ? (ActivePing?.Stats.Lost        ?? _tcpPing.Stats.Lost)
-            : (ActivePing?.Stats.Sent        ?? _tcpPing.Stats.Sent);
+        var stats = ActiveStats;
+        var lostList = ModeTcp.IsChecked == true ? _tcpPing.LostResults : _ping.LostResults;
+        var allList  = ModeTcp.IsChecked == true ? _tcpPing.Results     : _ping.Results;
+        int count = showingLost ? lostList.Count : allList.Count;
+        int total = showingLost ? stats.Lost     : stats.Sent;
         PingListCount.Text = $"显示 {count} / {total}";
     }
 
@@ -470,23 +468,18 @@ public partial class MainWindow : Window
 
     private void UpdateStats()
     {
-        // "全部" 模式:显示所有统计
-        // "只丢包" 模式:统计针对丢包子集
         bool showingLost = ShowLostRadio.IsChecked == true;
+        var s = ActiveStats;
         if (showingLost)
         {
-            // Lost-only view: sent/recv/loss computed over the lost-list size
-            int lostCount = _ping.LostResults.Count;
-            int totalAttempts = _ping.Stats.Sent;
-            int totalLost = _ping.Stats.Lost;
-            StatSent.Text = $"{totalLost} (丢包)";
-            StatRecv.Text = $"0 (全失败)";
-            StatLoss.Text = totalAttempts == 0 ? "0.0%" : $"{(double)totalLost / totalAttempts * 100:F1}%";
+            // Lost-only view: sent = total lost attempts; recv = 0 (all failed)
+            StatSent.Text = $"{s.Lost} (丢包)";
+            StatRecv.Text = "0 (全失败)";
+            StatLoss.Text = s.Sent == 0 ? "0.0%" : $"{(double)s.Lost / s.Sent * 100:F1}%";
             StatAvg.Text  = "—";
         }
         else
         {
-            var s = _ping.Stats;
             StatSent.Text = s.Sent.ToString();
             StatRecv.Text = s.Received.ToString();
             StatLoss.Text = $"{s.LossRate:F1}%";
@@ -547,14 +540,24 @@ public partial class MainWindow : Window
             if (isLocal)
             {
                 // Local: filter netstat output to the user-supplied port set
-                var rows = await LocalPortScannerService.ScanAsync(ports);
-                foreach (var row in rows) _scanResults.Add(row);
+                var localResult = await LocalPortScannerService.ScanAsync(ports);
+                if (localResult.HasError)
+                {
+                    ScanStatusText.Text = $"扫描失败: {localResult.Error}";
+                }
+                else
+                {
+                    foreach (var row in localResult.Rows) _scanResults.Add(row);
+                    ScanStatusText.Text = $"本机 LISTEN 中匹配端口 {localResult.Rows.Count} / {ports.Count}";
+                }
                 ScanProgressBar.Value = 1;
-                ScanStatusText.Text = $"本机 LISTEN 中匹配端口 {rows.Count} / {ports.Count}";
             }
             else
             {
-                // Remote: TCP connect probe each port
+                // Remote: TCP connect probe each port. The progress callback
+                // already populates _scanResults incrementally as opens are
+                // found, so we don't add again at the end (which would
+                // duplicate entries).
                 var open = await _remoteScanner.ScanAsync(
                     host: target,
                     ports: ports,
@@ -564,7 +567,9 @@ public partial class MainWindow : Window
                     {
                         ScanProgressBar.Value = p.Fraction;
                         ScanStatusText.Text = p.Summary;
-                        // Re-bind incrementally so user sees open ports appear
+                        // Re-bind incrementally so user sees open ports appear.
+                        // Only refresh the list when the open-port count changes
+                        // to avoid per-probe UI churn.
                         if (_scanResults.Count != _remoteScanner.OpenPorts.Count)
                         {
                             _scanResults.Clear();
@@ -572,8 +577,9 @@ public partial class MainWindow : Window
                                 _scanResults.Add(r);
                         }
                     }));
-                foreach (var r in open) _scanResults.Add(r); // ensure final state is consistent
-                ScanStatusText.Text = $"完成: 开放 {open.Count} / {ports.Count}";
+                ScanStatusText.Text = open.Count == ports.Count
+                    ? $"完成: 开放 {open.Count} / {ports.Count}"
+                    : $"完成: 开放 {open.Count} / {ports.Count}({ports.Count - open.Count} 已探测关闭或超时)";
             }
         }
         catch (Exception ex)
@@ -591,6 +597,29 @@ public partial class MainWindow : Window
 
     private void AppendLog(string message)
     {
-        System.Diagnostics.Debug.WriteLine($"{DateTime.Now:HH:mm:ss} {message}");
+        var line = $"[{DateTime.Now:HH:mm:ss}] {message}";
+        System.Diagnostics.Debug.WriteLine(line);
+
+        // Update status bar immediately (always-on, one-line)
+        if (StatusBarText is not null)
+            StatusBarText.Text = line;
+
+        // Append to log popup (capped at LogMaxLines to avoid unbounded growth)
+        if (LogItems is not null)
+        {
+            _logLines.Add(line);
+            while (_logLines.Count > LogMaxLines) _logLines.RemoveAt(0);
+        }
+    }
+
+    private void OnShowLogClick(object? sender, RoutedEventArgs e)
+    {
+        if (LogPopup is null) return;
+        LogPopup.IsVisible = !LogPopup.IsVisible;
+    }
+
+    private void OnCloseLogClick(object? sender, RoutedEventArgs e)
+    {
+        if (LogPopup is not null) LogPopup.IsVisible = false;
     }
 }
