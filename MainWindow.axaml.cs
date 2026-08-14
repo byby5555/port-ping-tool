@@ -334,6 +334,35 @@ public partial class MainWindow : Window
         if (isTcp && _ping.IsRunning) _ping.Stop();
         if (!isTcp && _tcpPing.IsRunning) _tcpPing.Stop();
 
+        // Wipe the *other* service's accumulated results so the user
+        // doesn't see stale data when they switch back. We don't wipe
+        // the currently active one — the next start (via OnPingStateChanged)
+        // will clear it on its own.
+        if (isTcp)
+        {
+            _ping.Results.Clear();
+            _ping.LostResults.Clear();
+        }
+        else
+        {
+            _tcpPing.Results.Clear();
+            _tcpPing.LostResults.Clear();
+        }
+
+        // Re-bind to the (now-empty) collections of the active service so the
+        // listbox shows the fresh state, not a mix of two services' data.
+        PingResults.ItemsSource = null;
+        PingResults.ItemsSource = isTcp ? _tcpPing.Results : _ping.Results;
+        if (ShowLostRadio.IsChecked == true)
+        {
+            PingResults.ItemsSource = null;
+            PingResults.ItemsSource = isTcp ? _tcpPing.LostResults : _ping.LostResults;
+        }
+
+        // Refresh the 4 stat cards and the count line.
+        UpdateStats();
+        UpdatePingListCount();
+
         UpdateIntervalHint();
     }
 
@@ -435,11 +464,22 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.InvokeAsync(() =>
         {
             AppendToResults(results, lost, r);
-            if (ShowAllRadio.IsChecked == true)
+            // Only auto-scroll to the newest entry if the user is already
+            // at (or near) the bottom of the list. If they've scrolled up
+            // to read history, don't yank them back. This is the standard
+            // chat-app behavior.
+            if (IsScrolledToBottom(PingResultScroller))
                 PingResultScroller.ScrollToEnd();
             UpdateStats();
             UpdatePingListCount();
         });
+    }
+
+    private static bool IsScrolledToBottom(Avalonia.Controls.ScrollViewer sv)
+    {
+        if (sv.Extent.Height <= sv.Viewport.Height) return true; // not scrollable yet
+        // 4px tolerance for the slightly-off round-off of Offsets.
+        return sv.Offset.Y + sv.Viewport.Height >= sv.Extent.Height - 4;
     }
 
     private static void AppendToResults(

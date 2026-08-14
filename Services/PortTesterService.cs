@@ -8,15 +8,17 @@ public static class PortTesterService
     public static async Task<PortTestResult> TestAsync(string host, int port, int timeoutMs = 3000, CancellationToken ct = default)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
+        if (string.IsNullOrWhiteSpace(host))
+            return new PortTestResult(false, 0, "Host is empty", "");
+
+        // Pre-compute the IP literal that the user typed (or empty if it was
+        // a hostname) so we can report it back in failure paths without
+        // re-parsing the input on every catch.
+        var literalIp = IPAddress.TryParse(host, out _) ? host : "";
+        var resolvedIp = literalIp;
+
         try
         {
-            if (string.IsNullOrWhiteSpace(host))
-                return new PortTestResult(false, 0, "Host is empty", "");
-
-            // Resolve the host (if it's a hostname) to its first IPv4 so we
-            // can show the resolved IP in the result. We pick the IPv4
-            // address when available since ICMP/Ping/most tooling prefers
-            // IPv4 for clarity.
             IPAddress[] addresses;
             try
             {
@@ -25,17 +27,17 @@ public static class PortTesterService
             catch (Exception ex)
             {
                 sw.Stop();
-                return new PortTestResult(false, sw.ElapsedMilliseconds, $"DNS resolve failed: {ex.Message}", "");
+                return new PortTestResult(false, sw.ElapsedMilliseconds, $"DNS resolve failed: {ex.Message}", resolvedIp);
             }
             if (addresses.Length == 0)
             {
                 sw.Stop();
-                return new PortTestResult(false, sw.ElapsedMilliseconds, "No DNS records", "");
+                return new PortTestResult(false, sw.ElapsedMilliseconds, "No DNS records", resolvedIp);
             }
 
             var firstV4 = addresses.FirstOrDefault(a => a.AddressFamily == System.Net.Sockets.AddressFamily.InterNetwork);
             var target = firstV4 ?? addresses[0];
-            var resolvedIp = IPAddress.TryParse(host, out _) ? host : target.ToString();
+            if (string.IsNullOrEmpty(resolvedIp)) resolvedIp = target.ToString();
 
             using var client = new TcpClient { ReceiveTimeout = timeoutMs, SendTimeout = timeoutMs };
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -48,22 +50,17 @@ public static class PortTesterService
         catch (OperationCanceledException)
         {
             sw.Stop();
-            // Best-effort: the host might be an IP literal that we never
-            // resolved, in which case the caller already knows it.
-            var ip = IPAddress.TryParse(host, out _) ? host : "";
-            return new PortTestResult(false, sw.ElapsedMilliseconds, $"Timed out after {timeoutMs} ms", ip);
+            return new PortTestResult(false, sw.ElapsedMilliseconds, $"Timed out after {timeoutMs} ms", resolvedIp);
         }
         catch (SocketException ex)
         {
             sw.Stop();
-            var ip = IPAddress.TryParse(host, out _) ? host : "";
-            return new PortTestResult(false, sw.ElapsedMilliseconds, $"Socket error: {ex.SocketErrorCode} ({ex.Message})", ip);
+            return new PortTestResult(false, sw.ElapsedMilliseconds, $"Socket error: {ex.SocketErrorCode} ({ex.Message})", resolvedIp);
         }
         catch (Exception ex)
         {
             sw.Stop();
-            var ip = IPAddress.TryParse(host, out _) ? host : "";
-            return new PortTestResult(false, sw.ElapsedMilliseconds, $"Error: {ex.Message}", ip);
+            return new PortTestResult(false, sw.ElapsedMilliseconds, $"Error: {ex.Message}", resolvedIp);
         }
     }
 }
