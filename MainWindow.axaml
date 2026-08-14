@@ -282,115 +282,16 @@
             </StackPanel>
           </Border>
 
-          <!-- Port scanner card: target + port list, local OR remote -->
-          <Border Classes="card" Margin="0,14,0,0">
-            <StackPanel>
-              <TextBlock Text="端口扫描" Classes="cardTitle"/>
-              <TextBlock Text="本机: 瞬时列出 LISTEN 端口。远端: TCP 握手探测。"
-                         Classes="caption" Margin="0,2,0,14"/>
-
-              <!-- Target row -->
-              <StackPanel Orientation="Horizontal">
-                <TextBlock Text="目标:" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
-                <TextBox x:Name="ScanTargetBox" Width="200" Text="127.0.0.1"
-                         ToolTip.Tip="本机: 127.0.0.1 / 0.0.0.0 / localhost。远端: 任意 IP 或域名"/>
-              </StackPanel>
-
-              <!-- Ports row -->
-              <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
-                <TextBlock Text="端口:" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
-                <TextBox x:Name="ScanPortsBox" Width="200" Text="80,443,8000-8100"
-                         ToolTip.Tip="支持: 80 / 80,443 / 1-100 / 80,443,8000-8100 / all"/>
-              </StackPanel>
-
-              <!-- Concurrency slider -->
-              <Grid Margin="0,10,0,0">
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="Auto"/>
-                  <ColumnDefinition Width="*"/>
-                  <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="并发:" VerticalAlignment="Center" Margin="0,0,8,0"
-                           Foreground="{StaticResource TextSecondary}" FontSize="12"/>
-                <Slider Grid.Column="1" x:Name="ScanConcurrencySlider"
-                        Minimum="10" Maximum="100" Value="50"
-                        TickFrequency="10" IsSnapToTickEnabled="True"/>
-                <TextBlock Grid.Column="2" x:Name="ScanConcurrencyText"
-                           Text="50" Margin="8,0,0,0" VerticalAlignment="Center"
-                           FontSize="12" Width="30"
-                           Foreground="{StaticResource TextSecondary}"/>
-              </Grid>
-
-              <!-- Action row -->
-              <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                <Button x:Name="ScanBtn" Classes="primary" Content="扫描"
-                        Click="OnScanClick"/>
-                <Button x:Name="ScanCancelBtn" Classes="secondary" Margin="8,0,0,0"
-                        Content="取消" Click="OnScanCancelClick" IsEnabled="False"/>
-                <TextBlock x:Name="ScanStatusText" Margin="14,0,0,0"
-                           VerticalAlignment="Center" FontSize="12"
-                           Foreground="{StaticResource TextTertiary}"/>
-              </StackPanel>
-
-              <!-- Progress -->
-              <ProgressBar x:Name="ScanProgressBar" Margin="0,10,0,0"
-                           Minimum="0" Maximum="1" Value="0" Height="6"/>
-
-              <!-- Results -->
-              <Border Classes="subcard" Margin="0,12,0,0" Padding="0">
-                <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto">
-                  <ListBox x:Name="ScanResults" Padding="0,4"
-                           Background="Transparent" BorderThickness="0">
-                    <ListBox.ItemTemplate>
-                      <DataTemplate DataType="svc:LocalPortRow">
-                        <Grid Margin="10,4">
-                          <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="50"/>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="60"/>
-                            <ColumnDefinition Width="60"/>
-                            <ColumnDefinition Width="50"/>
-                          </Grid.ColumnDefinitions>
-                          <TextBlock Grid.Column="0" Text="{Binding DisplayPort}"
-                                     FontFamily="Cascadia Mono, Consolas"
-                                     FontSize="12" FontWeight="SemiBold"
-                                     Foreground="{StaticResource Accent}"/>
-                          <TextBlock Grid.Column="1" Text="{Binding DisplayAddress}"
-                                     FontFamily="Cascadia Mono, Consolas"
-                                     FontSize="11" Margin="10,0,0,0"
-                                     Foreground="{StaticResource TextSecondary}"/>
-                          <TextBlock Grid.Column="2" Text="{Binding DisplayState}"
-                                     FontFamily="Cascadia Mono, Consolas"
-                                     FontSize="11"
-                                     Foreground="{StaticResource Success}"/>
-                          <TextBlock Grid.Column="3" Text="{Binding DisplaySource}"
-                                     FontFamily="Cascadia Mono, Consolas"
-                                     FontSize="11"
-                                     Foreground="{StaticResource TextTertiary}"/>
-                          <TextBlock Grid.Column="4" Text="{Binding DisplayPid}"
-                                     FontFamily="Cascadia Mono, Consolas"
-                                     FontSize="11" Margin="0,0,10,0"
-                                     HorizontalAlignment="Right"
-                                     Foreground="{StaticResource TextTertiary}"/>
-                        </Grid>
-                      </DataTemplate>
-                    </ListBox.ItemTemplate>
-                  </ListBox>
-                </ScrollViewer>
-              </Border>
-            </StackPanel>
-          </Border>
-
+          <!-- Port scanner card: moved to the right column for layout balance -->
         </StackPanel>
       </ScrollViewer>
     </Grid>
 
-    <!-- ====================== RIGHT: PING ====================== -->
+    <!-- ====================== RIGHT: PING + SCANNER ====================== -->
     <Grid Grid.Column="2">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
+        <RowDefinition Height="2*"/>
         <RowDefinition Height="*"/>
       </Grid.RowDefinitions>
 
@@ -546,6 +447,107 @@
             </Border>
           </Grid>
         </Grid>
+      </Border>
+
+      <!-- Port scanner card (moved to right column for layout balance) -->
+      <Border Grid.Row="2" Classes="card" Margin="0,14,0,0">
+        <StackPanel>
+          <TextBlock Text="端口扫描" Classes="cardTitle"/>
+          <TextBlock Text="本机: 瞬时列出 LISTEN 端口。远端: TCP 握手探测。"
+                     Classes="caption" Margin="0,2,0,14"/>
+
+          <!-- Target row -->
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Text="目标:" VerticalAlignment="Center" Margin="0,0,8,0"
+                       Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <TextBox x:Name="ScanTargetBox" Width="200" Text="127.0.0.1"
+                     ToolTip.Tip="本机: 127.0.0.1 / 0.0.0.0 / localhost。远端: 任意 IP 或域名"/>
+          </StackPanel>
+
+          <!-- Ports row -->
+          <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+            <TextBlock Text="端口:" VerticalAlignment="Center" Margin="0,0,8,0"
+                       Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <TextBox x:Name="ScanPortsBox" Width="200" Text="80,443,8000-8100"
+                     ToolTip.Tip="支持: 80 / 80,443 / 1-100 / 80,443,8000-8100 / all"/>
+          </StackPanel>
+
+          <!-- Concurrency slider -->
+          <Grid Margin="0,10,0,0">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto"/>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="并发:" VerticalAlignment="Center" Margin="0,0,8,0"
+                       Foreground="{StaticResource TextSecondary}" FontSize="12"/>
+            <Slider Grid.Column="1" x:Name="ScanConcurrencySlider"
+                    Minimum="10" Maximum="100" Value="50"
+                    TickFrequency="10" IsSnapToTickEnabled="True"/>
+            <TextBlock Grid.Column="2" x:Name="ScanConcurrencyText"
+                       Text="50" Margin="8,0,0,0" VerticalAlignment="Center"
+                       FontSize="12" Width="30"
+                       Foreground="{StaticResource TextSecondary}"/>
+          </Grid>
+
+          <!-- Action row -->
+          <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <Button x:Name="ScanBtn" Classes="primary" Content="扫描"
+                    Click="OnScanClick"/>
+            <Button x:Name="ScanCancelBtn" Classes="secondary" Margin="8,0,0,0"
+                    Content="取消" Click="OnScanCancelClick" IsEnabled="False"/>
+            <TextBlock x:Name="ScanStatusText" Margin="14,0,0,0"
+                       VerticalAlignment="Center" FontSize="12"
+                       Foreground="{StaticResource TextTertiary}"/>
+          </StackPanel>
+
+          <!-- Progress -->
+          <ProgressBar x:Name="ScanProgressBar" Margin="0,10,0,0"
+                       Minimum="0" Maximum="1" Value="0" Height="6"/>
+
+          <!-- Results -->
+          <Border Classes="subcard" Margin="0,12,0,0" Padding="0">
+            <ScrollViewer MaxHeight="180" VerticalScrollBarVisibility="Auto">
+              <ListBox x:Name="ScanResults" Padding="0,4"
+                       Background="Transparent" BorderThickness="0">
+                <ListBox.ItemTemplate>
+                  <DataTemplate DataType="svc:LocalPortRow">
+                    <Grid Margin="10,4">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="50"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="60"/>
+                        <ColumnDefinition Width="50"/>
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Grid.Column="0" Text="{Binding DisplayPort}"
+                                 FontFamily="Cascadia Mono, Consolas"
+                                 FontSize="12" FontWeight="SemiBold"
+                                 Foreground="{StaticResource Accent}"/>
+                      <TextBlock Grid.Column="1" Text="{Binding DisplayAddress}"
+                                 FontFamily="Cascadia Mono, Consolas"
+                                 FontSize="11" Margin="10,0,0,0"
+                                 Foreground="{StaticResource TextSecondary}"/>
+                      <TextBlock Grid.Column="2" Text="{Binding DisplayState}"
+                                 FontFamily="Cascadia Mono, Consolas"
+                                 FontSize="11"
+                                 Foreground="{StaticResource Success}"/>
+                      <TextBlock Grid.Column="3" Text="{Binding DisplaySource}"
+                                 FontFamily="Cascadia Mono, Consolas"
+                                 FontSize="11"
+                                 Foreground="{StaticResource TextTertiary}"/>
+                      <TextBlock Grid.Column="4" Text="{Binding DisplayPid}"
+                                 FontFamily="Cascadia Mono, Consolas"
+                                 FontSize="11" Margin="0,0,10,0"
+                                 HorizontalAlignment="Right"
+                                 Foreground="{StaticResource TextTertiary}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ListBox.ItemTemplate>
+              </ListBox>
+            </ScrollViewer>
+          </Border>
+        </StackPanel>
       </Border>
     </Grid>
     </Grid>

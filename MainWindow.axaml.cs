@@ -123,10 +123,11 @@ public partial class MainWindow : Window
             Dispatcher.UIThread.InvokeAsync(() =>
             {
                 // Add to END (O(1)) rather than Insert(0) (O(n)). Cap at
-                // 200 entries to keep memory bounded — connection bursts
-                // beyond that are uncommon in practice.
+                // 500 entries so the operator has a useful rolling window
+                // for diagnosing a hammered port. The ListBox virtualizes
+                // beyond that so memory cost stays bounded.
                 _connectionLog.Add(record);
-                while (_connectionLog.Count > 200) _connectionLog.RemoveAt(0);
+                while (_connectionLog.Count > 500) _connectionLog.RemoveAt(0);
                 // Auto-scroll to the newest entry (at the bottom).
                 ConnectionLogScroller.ScrollToEnd();
                 AppendLog($"[连接] 端口 {port} 来自 {record.RemoteEndPoint}");
@@ -281,9 +282,20 @@ public partial class MainWindow : Window
         try
         {
             var r = await PortTesterService.TestAsync(host, port);
+            // Build the result line. If the host was a hostname we show the
+            // resolved IP next to the latency / detail, e.g.
+            //   "OPEN · 42 ms (1.1.1.1)"
+            // For IP literals, the ResolvedIp equals the input and we
+            // skip the parenthetical to avoid noise.
+            string ipTag = "";
+            if (!string.IsNullOrEmpty(r.ResolvedIp)
+                && !string.Equals(r.ResolvedIp, host, StringComparison.Ordinal))
+            {
+                ipTag = $"  ({r.ResolvedIp})";
+            }
             TestResultText.Text = r.IsOpen
-                ? $"OPEN · {r.LatencyMs} ms"
-                : $"CLOSED · {r.Detail}";
+                ? $"OPEN · {r.LatencyMs} ms{ipTag}"
+                : $"CLOSED · {r.Detail}{ipTag}";
             var color = r.IsOpen ? "#34C759" : "#FF3B30";
             TestResultText.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse(color));
         }
