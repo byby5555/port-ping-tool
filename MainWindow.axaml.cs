@@ -34,18 +34,22 @@ public partial class MainWindow : Window
         _tcpPing.ResultArrived += OnPingResultTcp;
         _tcpPing.StateChanged += OnPingStateChanged;
 
-        // Scanner slider live update
-        ScanConcurrencySlider.PropertyChanged += (_, ev) =>
-        {
-            if (ev.Property.Name == "Value" && ScanConcurrencyText is not null)
-                ScanConcurrencyText.Text = ((int)ScanConcurrencySlider.Value).ToString();
-        };
+        // Scanner slider live update — use the ValueChanged routed event
+        // (not PropertyChanged) because RangeBase exposes it specifically and
+        // PropertyChanged doesn't always fire for the Value DP in all
+        // Avalonia versions.
+        ScanConcurrencySlider.AddHandler(
+            Avalonia.Controls.Primitives.RangeBase.ValueChangedEvent,
+            new System.EventHandler<Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs>(OnScanConcurrencyChanged));
 
         CountFixed.IsCheckedChanged   += (_, _) => { if (CountFixed.IsChecked == true) CountBox.IsEnabled = true; };
         CountContinuous.IsCheckedChanged += (_, _) => { if (CountContinuous.IsChecked == true) CountBox.IsEnabled = false; };
 
         // Fire public-IP lookup on startup
         _ = RefreshPublicIpAsync();
+
+        // Initialise the interval-mode hint
+        UpdateIntervalHint();
     }
 
     // ========================= Network info (top-right card) =========================
@@ -118,8 +122,13 @@ public partial class MainWindow : Window
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _connectionLog.Insert(0, record);
-                while (_connectionLog.Count > 500) _connectionLog.RemoveAt(_connectionLog.Count - 1);
+                // Add to END (O(1)) rather than Insert(0) (O(n)). Cap at
+                // 200 entries to keep memory bounded — connection bursts
+                // beyond that are uncommon in practice.
+                _connectionLog.Add(record);
+                while (_connectionLog.Count > 200) _connectionLog.RemoveAt(0);
+                // Auto-scroll to the newest entry (at the bottom).
+                ConnectionLogScroller.ScrollToEnd();
                 AppendLog($"[连接] 端口 {port} 来自 {record.RemoteEndPoint}");
             });
         };
@@ -312,6 +321,8 @@ public partial class MainWindow : Window
         // services in flight at once. Stop whichever is no longer selected.
         if (isTcp && _ping.IsRunning) _ping.Stop();
         if (!isTcp && _tcpPing.IsRunning) _tcpPing.Stop();
+
+        UpdateIntervalHint();
     }
 
     private void OnIntervalChanged(object? sender, RoutedEventArgs e)
@@ -320,6 +331,38 @@ public partial class MainWindow : Window
         int ms = CurrentIntervalMs();
         if (!_ping.IsRunning) _ping.IntervalMs = ms;
         if (!_tcpPing.IsRunning) _tcpPing.IntervalMs = ms;
+        UpdateIntervalHint();
+    }
+
+    private void UpdateIntervalHint()
+    {
+        if (IntervalHint is null) return;
+        bool isTcp = ModeTcp.IsChecked == true;
+        int ms = CurrentIntervalMs();
+        if (isTcp)
+        {
+            // TCP can actually hit the requested interval (no kernel throttling).
+            IntervalHint.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#34C759"));
+            IntervalHint.Text = ms switch
+            {
+                1   => "⚡ 1ms 实际可达:系统 TCP 握手无内核节流,适合高频端口响应监测。",
+                10  => "10ms 高频 TCP 握手,适合端口抖动监测。",
+                100 => "100ms 较快 TCP 握手,默认推荐。",
+                _   => "1000ms 标准 TCP 握手,默认间隔。",
+            };
+        }
+        else
+        {
+            // ICMP is throttled by the Windows kernel.
+            IntervalHint.Foreground = new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.Parse("#8E8E93"));
+            IntervalHint.Text = ms switch
+            {
+                1   => "⚠ 1ms ICMP 实际不可达:Windows 内核 ICMP 限流,实测最快约 5-10ms。",
+                10  => "⚠ 10ms ICMP 会被节流,丢包率会虚高,推荐用 1000ms 或切 TCP。",
+                100 => "100ms ICMP 高频,丢包率会被系统节流影响,推荐用 TCP 模式获得真 1ms。",
+                _   => "1000ms 标准 ICMP,默认推荐。",
+            };
+        }
     }
 
     private async void OnPingToggleClick(object? sender, RoutedEventArgs e)
