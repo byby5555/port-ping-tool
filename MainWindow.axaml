@@ -287,12 +287,13 @@
       </ScrollViewer>
     </Grid>
 
-    <!-- ====================== RIGHT: PING + SCANNER ====================== -->
+    <!-- ====================== RIGHT: PING + SCANNER (draggable splitter) ====================== -->
     <Grid Grid.Column="2">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
-        <RowDefinition Height="2*" MinHeight="380"/>
-        <RowDefinition Height="*" MinHeight="320"/>
+        <RowDefinition Height="2*" MinHeight="280"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*" MinHeight="260"/>
       </Grid.RowDefinitions>
 
       <StackPanel Grid.Row="0" Margin="0,0,0,12">
@@ -382,56 +383,49 @@
             <TextBox x:Name="CountBox" Width="60" Margin="6,0,0,0" Text="10" IsEnabled="False"/>
           </StackPanel>
 
-          <!-- Statistics panel -->
+          <!-- Statistics panel — explicitly small font + Auto-width columns so the
+               big number can't push the column wider on hi-DPI screens. -->
           <Border Grid.Row="6" Classes="subcard" Margin="0,14,0,0" Padding="14,10">
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-              </Grid.ColumnDefinitions>
-
-              <!-- 已发送: number (large) + unit (small) on one line, never wraps -->
-              <StackPanel Grid.Column="0">
+            <StackPanel Orientation="Horizontal" Spacing="20">
+              <StackPanel>
                 <TextBlock Text="已发送" Classes="caption"/>
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                  <TextBlock x:Name="StatSent" Text="0" FontSize="20" FontWeight="SemiBold"
+                  <TextBlock x:Name="StatSent" Text="0" FontSize="16" FontWeight="SemiBold"
                              Foreground="{StaticResource TextPrimary}"/>
-                  <TextBlock x:Name="StatSentUnit" Text="" FontSize="11"
+                  <TextBlock x:Name="StatSentUnit" Text="" FontSize="10"
                              Foreground="{StaticResource TextTertiary}"
-                             VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                             VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel Grid.Column="1">
+              <StackPanel>
                 <TextBlock Text="已接收" Classes="caption"/>
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                  <TextBlock x:Name="StatRecv" Text="0" FontSize="20" FontWeight="SemiBold"
+                  <TextBlock x:Name="StatRecv" Text="0" FontSize="16" FontWeight="SemiBold"
                              Foreground="{StaticResource Success}"/>
-                  <TextBlock x:Name="StatRecvUnit" Text="" FontSize="11"
+                  <TextBlock x:Name="StatRecvUnit" Text="" FontSize="10"
                              Foreground="{StaticResource TextTertiary}"
-                             VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                             VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel Grid.Column="2">
+              <StackPanel>
                 <TextBlock Text="丢包率" Classes="caption"/>
-                <TextBlock x:Name="StatLoss" Text="0.0%" FontSize="20" FontWeight="SemiBold"
+                <TextBlock x:Name="StatLoss" Text="0.0%" FontSize="16" FontWeight="SemiBold"
                            Foreground="{StaticResource Danger}"/>
               </StackPanel>
 
-              <StackPanel Grid.Column="3">
+              <StackPanel>
                 <TextBlock Text="平均延迟" Classes="caption"/>
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
-                  <TextBlock x:Name="StatAvg" Text="0" FontSize="20" FontWeight="SemiBold"
+                  <TextBlock x:Name="StatAvg" Text="0" FontSize="16" FontWeight="SemiBold"
                              Foreground="{StaticResource TextPrimary}"/>
-                  <TextBlock x:Name="StatAvgUnit" Text="ms" FontSize="11"
+                  <TextBlock x:Name="StatAvgUnit" Text="ms" FontSize="10"
                              Foreground="{StaticResource TextTertiary}"
-                             VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                             VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 </StackPanel>
               </StackPanel>
-            </Grid>
+            </StackPanel>
           </Border>
 
           <Grid Grid.Row="7" Margin="0,14,0,0">
@@ -469,8 +463,18 @@
         </Grid>
       </Border>
 
+      <!-- Draggable splitter between Ping and Scanner cards -->
+      <GridSplitter Grid.Row="2"
+                    Height="6"
+                    HorizontalAlignment="Stretch"
+                    VerticalAlignment="Center"
+                    Background="Transparent"
+                    ResizeDirection="Rows"
+                    ShowsPreview="True"
+                    Margin="0,4,0,4"/>
+
       <!-- Port scanner card (moved to right column for layout balance) -->
-      <Border Grid.Row="2" Classes="card" Margin="0,14,0,0">
+      <Border Grid.Row="3" Classes="card" Margin="0,4,0,0">
         <StackPanel>
           <TextBlock Text="端口扫描" Classes="cardTitle"/>
           <TextBlock Text="本机: 瞬时列出 LISTEN 端口。远端: TCP 握手探测。"
