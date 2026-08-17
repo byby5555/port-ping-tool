@@ -551,9 +551,12 @@ public partial class MainWindow : Window
                 if (activePing is not null) { activePing.Results.Clear(); activePing.LostResults.Clear(); }
                 if (activeTcp  is not null) { activeTcp.Results.Clear();  activeTcp.LostResults.Clear(); }
                 StatSent.Text  = "0";
+                StatSentUnit.Text = "";
                 StatRecv.Text  = "0";
+                StatRecvUnit.Text = "";
                 StatLoss.Text  = "0.0%";
-                StatAvg.Text   = "0 ms";
+                StatAvg.Text   = "0";
+                StatAvgUnit.Text = "ms";
             }
             // On stop: keep the results so the user can review the stats.
             UpdateStats();
@@ -567,18 +570,28 @@ public partial class MainWindow : Window
         var s = ActiveStats;
         if (showingLost)
         {
-            // Lost-only view: sent = total lost attempts; recv = 0 (all failed)
-            StatSent.Text = $"{s.Lost} (丢包)";
-            StatRecv.Text = "0 (全失败)";
+            // Lost-only view: the large number is the lost count, with a
+            // small "丢包" / "全失败" suffix rendered as a separate
+            // TextBlock so it doesn't bloat the column.
+            StatSent.Text = s.Lost.ToString();
+            StatSentUnit.Text = "丢包";
+            StatRecv.Text = "0";
+            StatRecvUnit.Text = "全失败";
             StatLoss.Text = s.Sent == 0 ? "0.0%" : $"{(double)s.Lost / s.Sent * 100:F1}%";
             StatAvg.Text  = "—";
+            StatAvgUnit.Text = "";
         }
         else
         {
             StatSent.Text = s.Sent.ToString();
+            StatSentUnit.Text = "";
             StatRecv.Text = s.Received.ToString();
+            StatRecvUnit.Text = "";
             StatLoss.Text = $"{s.LossRate:F1}%";
-            StatAvg.Text  = $"{s.AvgLatency:F0} ms";
+            // Restore the standard "ms" unit when going back to the
+            // "全部" view.
+            StatAvg.Text  = s.Received > 0 ? s.AvgLatency.ToString("F0") : "0";
+            StatAvgUnit.Text = s.Received > 0 ? "ms" : "ms";
         }
     }
 
