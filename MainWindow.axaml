@@ -7,7 +7,7 @@
         x:Class="PortPingTool.MainWindow"
         Title="Port &amp; Ping Tool"
         Width="1180" Height="780"
-        MinWidth="900" MinHeight="600"
+        MinWidth="900" MinHeight="720"
         Background="#F5F5F7"
         FontFamily="Inter, Segoe UI Variable, Segoe UI"
         WindowStartupLocation="CenterScreen">
@@ -291,8 +291,8 @@
     <Grid Grid.Column="2">
       <Grid.RowDefinitions>
         <RowDefinition Height="Auto"/>
-        <RowDefinition Height="2*"/>
-        <RowDefinition Height="*"/>
+        <RowDefinition Height="2*" MinHeight="380"/>
+        <RowDefinition Height="*" MinHeight="320"/>
       </Grid.RowDefinitions>
 
       <StackPanel Grid.Row="0" Margin="0,0,0,12">
@@ -391,25 +391,45 @@
                 <ColumnDefinition Width="*"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
+
+              <!-- 已发送: number (large) + unit (small) on one line, never wraps -->
               <StackPanel Grid.Column="0">
                 <TextBlock Text="已发送" Classes="caption"/>
-                <TextBlock x:Name="StatSent" Text="0" FontSize="18" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimary}"/>
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock x:Name="StatSent" Text="0" FontSize="20" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextPrimary}"/>
+                  <TextBlock x:Name="StatSentUnit" Text="" FontSize="11"
+                             Foreground="{StaticResource TextTertiary}"
+                             VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                </StackPanel>
               </StackPanel>
+
               <StackPanel Grid.Column="1">
                 <TextBlock Text="已接收" Classes="caption"/>
-                <TextBlock x:Name="StatRecv" Text="0" FontSize="18" FontWeight="SemiBold"
-                           Foreground="{StaticResource Success}"/>
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock x:Name="StatRecv" Text="0" FontSize="20" FontWeight="SemiBold"
+                             Foreground="{StaticResource Success}"/>
+                  <TextBlock x:Name="StatRecvUnit" Text="" FontSize="11"
+                             Foreground="{StaticResource TextTertiary}"
+                             VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                </StackPanel>
               </StackPanel>
+
               <StackPanel Grid.Column="2">
                 <TextBlock Text="丢包率" Classes="caption"/>
-                <TextBlock x:Name="StatLoss" Text="0.0%" FontSize="18" FontWeight="SemiBold"
+                <TextBlock x:Name="StatLoss" Text="0.0%" FontSize="20" FontWeight="SemiBold"
                            Foreground="{StaticResource Danger}"/>
               </StackPanel>
+
               <StackPanel Grid.Column="3">
                 <TextBlock Text="平均延迟" Classes="caption"/>
-                <TextBlock x:Name="StatAvg" Text="0 ms" FontSize="18" FontWeight="SemiBold"
-                           Foreground="{StaticResource TextPrimary}"/>
+                <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                  <TextBlock x:Name="StatAvg" Text="0" FontSize="20" FontWeight="SemiBold"
+                             Foreground="{StaticResource TextPrimary}"/>
+                  <TextBlock x:Name="StatAvgUnit" Text="ms" FontSize="11"
+                             Foreground="{StaticResource TextTertiary}"
+                             VerticalAlignment="Bottom" Margin="0,0,0,3"/>
+                </StackPanel>
               </StackPanel>
             </Grid>
           </Border>
