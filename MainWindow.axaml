@@ -232,7 +232,7 @@
               <TextBlock Text="连接记录" Classes="label" Margin="0,16,0,6"/>
               <Border Classes="subcard" MinHeight="120" MaxHeight="200">
                 <ScrollViewer x:Name="ConnectionLogScroller" VerticalScrollBarVisibility="Auto">
-                  <ListBox x:Name="ConnectionLog" Padding="10,8"
+                  <ListBox x:Name="ConnectionLog" Padding="10,4"
                            Background="Transparent" BorderThickness="0">
                     <ListBox.ItemTemplate>
                       <DataTemplate DataType="svc:ConnectionRecord">
@@ -240,7 +240,8 @@
                                    FontFamily="Cascadia Mono, Consolas, Courier New"
                                    FontSize="11"
                                    Foreground="{StaticResource TextSecondary}"
-                                   Margin="0,1"/>
+                                   LineHeight="16"
+                                   Margin="0,0"/>
                       </DataTemplate>
                     </ListBox.ItemTemplate>
                   </ListBox>
@@ -459,13 +460,13 @@
             </StackPanel>
             <Border Grid.Row="1" Classes="subcard">
               <ScrollViewer x:Name="PingResultScroller" VerticalScrollBarVisibility="Auto">
-                <ListBox x:Name="PingResults" Padding="10,8"
+                <ListBox x:Name="PingResults" Padding="10,4"
                          Background="Transparent" BorderThickness="0">
                   <ListBox.ItemTemplate>
                     <DataTemplate DataType="svc:PingRecord">
                       <TextBlock Text="{Binding Display}"
                                  FontFamily="Cascadia Mono, Consolas, Courier New"
-                                 FontSize="13" Margin="0,2"
+                                 FontSize="13" Margin="0,0" LineHeight="18"
                                  Foreground="{Binding RowColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
                     </DataTemplate>
                   </ListBox.ItemTemplate>
