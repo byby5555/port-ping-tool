@@ -68,7 +68,15 @@ public sealed class PublicIpService
     {
         try
         {
-            var json = await Http.GetStringAsync(url, ct).ConfigureAwait(false);
+            var req = new HttpRequestMessage(HttpMethod.Get, url);
+            req.Headers.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            req.Headers.Add("Accept", "application/json");
+            var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return new PublicIpInfo { Source = "ip-api.com", Error = $"HTTP {(int)resp.StatusCode}" };
+            var json = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             var doc = JsonDocument.Parse(json);
             var r = doc.RootElement;
             if (r.GetProperty("status").GetString() != "success")
@@ -97,21 +105,52 @@ public sealed class PublicIpService
     }
 
     /// <summary>
-    /// pconline returns JSONP-ish text. Format:
-    ///   var ipJson={"ip":"47.100.94.83","pro":"浙江省杭州市","proCode":"330000","city":"杭州市","cityCode":"330100","region":"华东","regionCode":"300000","addr":"中国 华东 浙江省 杭州市 阿里巴巴","regionNames":"","isp":"阿里巴巴","ispId":"","status":"ok","src":"dns"}
-    /// We strip the var declaration and parse the JSON.
+    /// "China-side" lookup. Tries three endpoints in order:
+    ///   1. pconline (best Chinese geo + Chinese ISP name)
+    ///   2. ipwho.is (global, has ASN/connection info)
+    ///   3. ipinfo.io (last-resort fallback)
+    /// Each step returns Error populated on failure so the next step
+    /// can run.
     /// </summary>
-    private static async Task<PublicIpInfo> QueryPconlineAsync(CancellationToken ct)
+    private async Task<PublicIpInfo> QueryPconlineAsync(CancellationToken ct)
+    {
+        var p = await TryPconlineAsync(ct).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(p.Error)) return p;
+        var w = await TryIpWhoIsAsync(ct).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(w.Error)) return w;
+        return await TryIpInfoIoAsync(ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// pconline returns JSONP-ish text:
+    ///   var ipJson={"ip":"47.100.94.83","pro":"浙江省杭州市","city":"杭州市","isp":"阿里巴巴","status":"ok",...}
+    /// As of 2026 the endpoint is gated behind a hotload check that 403s
+    /// .NET's default HttpClient (User-Agent is too obviously non-browser).
+    /// We send a real browser UA + Referer.
+    /// </summary>
+    private static async Task<PublicIpInfo> TryPconlineAsync(CancellationToken ct)
     {
         try
         {
-            // pconline sometimes blocks on HTTPS, use HTTP
-            var text = await Http.GetStringAsync("http://whois.pconline.com.cn/ipJson.jsp", ct).ConfigureAwait(false);
-            // Strip "var ipJson=" prefix and any trailing ";"
+            var req = new HttpRequestMessage(HttpMethod.Get, "http://whois.pconline.com.cn/ipJson.jsp");
+            req.Headers.Add("User-Agent",
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36");
+            req.Headers.Add("Referer", "http://whois.pconline.com.cn/");
+            req.Headers.Add("Accept", "*/*");
+            req.Headers.Add("Accept-Language", "zh-CN,zh;q=0.9");
+            var resp = await Http.SendAsync(req, ct).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode)
+                return new PublicIpInfo { Source = "pconline", Error = $"HTTP {(int)resp.StatusCode}" };
+            var text = await resp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
             text = text.Trim();
             if (text.StartsWith("var ")) text = text.Substring(text.IndexOf('=') + 1).TrimEnd(';', ' ');
+            if (text.StartsWith("<")) // pconline sometimes returns an HTML 200 page
+                return new PublicIpInfo { Source = "pconline", Error = "non-JSON response" };
             var doc = JsonDocument.Parse(text);
             var r = doc.RootElement;
+            if (r.TryGetProperty("status", out var st) && st.GetString() != "ok")
+                return new PublicIpInfo { Source = "pconline", Error = "API status≠ok" };
             var info = new PublicIpInfo
             {
                 Ip      = r.TryGetProperty("ip", out var ip) ? ip.GetString() ?? "" : "",
@@ -127,6 +166,78 @@ public sealed class PublicIpService
         catch (Exception ex)
         {
             return new PublicIpInfo { Source = "pconline", Error = ex.Message };
+        }
+    }
+
+    /// <summary>
+    /// ipwho.is — global free IP geo service. Has ASN/connection.org field.
+    /// Used as the primary fallback for the China-side lookup.
+    /// </summary>
+    private static async Task<PublicIpInfo> TryIpWhoIsAsync(CancellationToken ct)
+    {
+        try
+        {
+            var json = await Http.GetStringAsync("https://ipwho.is/", ct).ConfigureAwait(false);
+            var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            if (r.TryGetProperty("success", out var s) && !s.GetBoolean())
+                return new PublicIpInfo { Source = "ipwho.is", Error = "success=false" };
+            var info = new PublicIpInfo
+            {
+                Ip      = r.TryGetProperty("ip", out var ip) ? ip.GetString() ?? "" : "",
+                Country = r.TryGetProperty("country", out var c) ? c.GetString() ?? "" : "",
+                Region  = r.TryGetProperty("region", out var re) ? re.GetString() ?? "" : "",
+                City    = r.TryGetProperty("city", out var ci) ? ci.GetString() ?? "" : "",
+                Source  = "ipwho.is",
+            };
+            if (r.TryGetProperty("connection", out var conn) && conn.ValueKind == JsonValueKind.Object)
+            {
+                if (conn.TryGetProperty("org", out var org))  info.Org  = org.GetString()  ?? "";
+                if (conn.TryGetProperty("isp", out var isp))  info.Isp  = isp.GetString()  ?? "";
+                if (conn.TryGetProperty("asn", out var asn))  info.Asn  = asn.ToString();
+            }
+            info.Location = info.ComputeLocation();
+            return info;
+        }
+        catch (Exception ex)
+        {
+            return new PublicIpInfo { Source = "ipwho.is", Error = ex.Message };
+        }
+    }
+
+    /// <summary>
+    /// ipinfo.io — last-resort fallback. Reliable, well-cached.
+    /// </summary>
+    private static async Task<PublicIpInfo> TryIpInfoIoAsync(CancellationToken ct)
+    {
+        try
+        {
+            var json = await Http.GetStringAsync("https://ipinfo.io/json", ct).ConfigureAwait(false);
+            var doc = JsonDocument.Parse(json);
+            var r = doc.RootElement;
+            var info = new PublicIpInfo
+            {
+                Ip      = r.TryGetProperty("ip", out var ipEl) ? ipEl.GetString() ?? "" : "",
+                Country = r.TryGetProperty("country", out var cEl) ? cEl.GetString() ?? "" : "",
+                Region  = r.TryGetProperty("region", out var reEl) ? reEl.GetString() ?? "" : "",
+                City    = r.TryGetProperty("city", out var ciEl) ? ciEl.GetString() ?? "" : "",
+                Org     = r.TryGetProperty("org", out var orgEl) ? orgEl.GetString() ?? "" : "",
+                Source  = "ipinfo.io",
+            };
+            // ipinfo's "org" is "AS37963 Hangzhou Alibaba Advertising Co.,Ltd." —
+            // strip the ASN prefix to use the rest as ISP.
+            var orgStr = info.Org ?? "";
+            var sp     = orgStr.IndexOf(' ');
+            if (sp > 0 && orgStr.StartsWith("AS") && int.TryParse(orgStr.Substring(2, sp - 2), out _))
+                info.Isp = orgStr.Substring(sp + 1);
+            else
+                info.Isp = orgStr;
+            info.Location = info.ComputeLocation();
+            return info;
+        }
+        catch (Exception ex)
+        {
+            return new PublicIpInfo { Source = "ipinfo.io", Error = ex.Message };
         }
     }
 }
