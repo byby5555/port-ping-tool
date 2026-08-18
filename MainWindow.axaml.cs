@@ -25,7 +25,9 @@ public partial class MainWindow : Window
         InitializeComponent();
         ListenerList.ItemsSource = _listeners;
         ConnectionLog.ItemsSource = _connectionLog;
+#if false
         ScanResults.ItemsSource = _scanResults;
+#endif
         PingResults.ItemsSource = _ping.Results;
         LogItems.ItemsSource = _logLines;
 
@@ -34,13 +36,12 @@ public partial class MainWindow : Window
         _tcpPing.ResultArrived += OnPingResultTcp;
         _tcpPing.StateChanged += OnPingStateChanged;
 
-        // Scanner slider live update — use the ValueChanged routed event
-        // (not PropertyChanged) because RangeBase exposes it specifically and
-        // PropertyChanged doesn't always fire for the Value DP in all
-        // Avalonia versions.
+        // Scanner slider live update — disabled in v2.1.6 (scanner UI removed)
+#if false
         ScanConcurrencySlider.AddHandler(
             Avalonia.Controls.Primitives.RangeBase.ValueChangedEvent,
             new System.EventHandler<Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs>(OnScanConcurrencyChanged));
+#endif
 
         CountFixed.IsCheckedChanged   += (_, _) => { if (CountFixed.IsChecked == true) CountBox.IsEnabled = true; };
         CountContinuous.IsCheckedChanged += (_, _) => { if (CountContinuous.IsChecked == true) CountBox.IsEnabled = false; };
@@ -596,9 +597,14 @@ public partial class MainWindow : Window
     }
 
     // ========================= Scanner =========================
-
+    // Disabled in v2.1.6: scanner UI removed from MainWindow. Code kept
+    // for future restore — every reference to Scan* XAML controls is
+    // stubbed below so the project still compiles. The services
+    // (LocalPortScannerService, RemotePortScannerService, PortRangeParser)
+    // are untouched and reusable.
     private readonly RemotePortScannerService _remoteScanner = new();
 
+#if false
     private void OnScanConcurrencyChanged(object? sender, Avalonia.Controls.Primitives.RangeBaseValueChangedEventArgs e)
     {
         if (ScanConcurrencyText is not null)
@@ -647,7 +653,6 @@ public partial class MainWindow : Window
         {
             if (isLocal)
             {
-                // Local: filter netstat output to the user-supplied port set
                 var localResult = await LocalPortScannerService.ScanAsync(ports);
                 if (localResult.HasError)
                 {
@@ -662,10 +667,6 @@ public partial class MainWindow : Window
             }
             else
             {
-                // Remote: TCP connect probe each port. The progress callback
-                // already populates _scanResults incrementally as opens are
-                // found, so we don't add again at the end (which would
-                // duplicate entries).
                 var open = await _remoteScanner.ScanAsync(
                     host: target,
                     ports: ports,
@@ -675,9 +676,6 @@ public partial class MainWindow : Window
                     {
                         ScanProgressBar.Value = p.Fraction;
                         ScanStatusText.Text = p.Summary;
-                        // Re-bind incrementally so user sees open ports appear.
-                        // Only refresh the list when the open-port count changes
-                        // to avoid per-probe UI churn.
                         if (_scanResults.Count != _remoteScanner.OpenPorts.Count)
                         {
                             _scanResults.Clear();
@@ -700,6 +698,7 @@ public partial class MainWindow : Window
             ScanCancelBtn.IsEnabled = false;
         }
     }
+#endif
 
     // ========================= Misc =========================
 
