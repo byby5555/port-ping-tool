@@ -383,49 +383,64 @@
             <TextBox x:Name="CountBox" Width="60" Margin="6,0,0,0" Text="10" IsEnabled="False"/>
           </StackPanel>
 
-          <!-- Statistics panel — explicitly small font + Auto-width columns so the
-               big number can't push the column wider on hi-DPI screens. -->
+          <!-- Statistics panel — four cards stretched across the full width.
+               Each card has HorizontalContentAlignment=Stretch so the
+               number lines up to the left of its column regardless of
+               the value width. The 'Inter' font is GONE from the
+               FontFamily stack (see Window root), so 16px renders
+               as actual 16px on Windows. -->
           <Border Grid.Row="6" Classes="subcard" Margin="0,14,0,0" Padding="14,10">
-            <StackPanel Orientation="Horizontal" Spacing="20">
-              <StackPanel>
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="*"/>
+              </Grid.ColumnDefinitions>
+
+              <StackPanel Grid.Column="0" HorizontalAlignment="Stretch">
                 <TextBlock Text="已发送" Classes="caption"/>
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                   <TextBlock x:Name="StatSent" Text="0" FontSize="16" FontWeight="SemiBold"
-                             Foreground="{StaticResource TextPrimary}"/>
+                             Foreground="{StaticResource TextPrimary}"
+                             TextTrimming="CharacterEllipsis"/>
                   <TextBlock x:Name="StatSentUnit" Text="" FontSize="10"
                              Foreground="{StaticResource TextTertiary}"
                              VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel>
+              <StackPanel Grid.Column="1" HorizontalAlignment="Stretch">
                 <TextBlock Text="已接收" Classes="caption"/>
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                   <TextBlock x:Name="StatRecv" Text="0" FontSize="16" FontWeight="SemiBold"
-                             Foreground="{StaticResource Success}"/>
+                             Foreground="{StaticResource Success}"
+                             TextTrimming="CharacterEllipsis"/>
                   <TextBlock x:Name="StatRecvUnit" Text="" FontSize="10"
                              Foreground="{StaticResource TextTertiary}"
                              VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 </StackPanel>
               </StackPanel>
 
-              <StackPanel>
+              <StackPanel Grid.Column="2" HorizontalAlignment="Stretch">
                 <TextBlock Text="丢包率" Classes="caption"/>
                 <TextBlock x:Name="StatLoss" Text="0.0%" FontSize="16" FontWeight="SemiBold"
-                           Foreground="{StaticResource Danger}"/>
+                           Foreground="{StaticResource Danger}"
+                           TextTrimming="CharacterEllipsis"/>
               </StackPanel>
 
-              <StackPanel>
+              <StackPanel Grid.Column="3" HorizontalAlignment="Stretch">
                 <TextBlock Text="平均延迟" Classes="caption"/>
                 <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                   <TextBlock x:Name="StatAvg" Text="0" FontSize="16" FontWeight="SemiBold"
-                             Foreground="{StaticResource TextPrimary}"/>
+                             Foreground="{StaticResource TextPrimary}"
+                             TextTrimming="CharacterEllipsis"/>
                   <TextBlock x:Name="StatAvgUnit" Text="ms" FontSize="10"
                              Foreground="{StaticResource TextTertiary}"
                              VerticalAlignment="Bottom" Margin="0,0,0,2"/>
                 </StackPanel>
               </StackPanel>
-            </StackPanel>
+            </Grid>
           </Border>
 
           <Grid Grid.Row="7" Margin="0,14,0,0">
