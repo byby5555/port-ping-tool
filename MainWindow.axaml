@@ -458,19 +458,34 @@
                          VerticalAlignment="Center" FontSize="11"
                          Foreground="{StaticResource TextTertiary}"/>
             </StackPanel>
-            <Border Grid.Row="1" Classes="subcard" Padding="6,4">
-              <ScrollViewer x:Name="PingResultScroller" VerticalScrollBarVisibility="Auto">
-                <ListBox x:Name="PingResults" Padding="4,0"
-                         Background="Transparent" BorderThickness="0">
-                  <ListBox.ItemTemplate>
+            <Border Grid.Row="1" Classes="subcard" Padding="4,2">
+              <ScrollViewer x:Name="PingResultScroller"
+                            VerticalScrollBarVisibility="Auto"
+                            HorizontalScrollBarVisibility="Disabled"
+                            Background="Transparent"
+                            Padding="0">
+                <!-- ItemsControl (not ListBox) — ItemsControl only takes
+                     as much vertical space as its content, so the empty
+                     region at the top of the ScrollViewer above the
+                     first row disappears. Cost: no container
+                     virtualization, but 1000 rows × 16 px = 16 k px,
+                     well within budget. -->
+                <ItemsControl x:Name="PingResults" Padding="0" Margin="0">
+                  <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                      <StackPanel Spacing="0" Margin="0"/>
+                    </ItemsPanelTemplate>
+                  </ItemsControl.ItemsPanel>
+                  <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="svc:PingRecord">
                       <TextBlock Text="{Binding Display}"
                                  FontFamily="Cascadia Mono, Consolas, Courier New"
-                                 FontSize="13" Margin="0,0" LineHeight="18"
+                                 FontSize="12" Margin="0" Padding="0"
+                                 LineHeight="16"
                                  Foreground="{Binding RowColor, Converter={x:Static svc:HexToBrushConverter.Instance}}"/>
                     </DataTemplate>
-                  </ListBox.ItemTemplate>
-                </ListBox>
+                  </ItemsControl.ItemTemplate>
+                </ItemsControl>
               </ScrollViewer>
             </Border>
           </Grid>
