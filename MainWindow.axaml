@@ -9,7 +9,7 @@
         Width="1180" Height="780"
         MinWidth="900" MinHeight="720"
         Background="#F5F5F7"
-        FontFamily="Inter, Segoe UI Variable, Segoe UI"
+        FontFamily="Segoe UI Variable, Segoe UI"
         WindowStartupLocation="CenterScreen">
 
   <Window.Resources>
@@ -463,15 +463,30 @@
         </Grid>
       </Border>
 
-      <!-- Draggable splitter between Ping and Scanner cards -->
+      <!-- Draggable splitter between Ping and Scanner cards. Visible 8px bar
+           with three grip lines so the user can find it. -->
       <GridSplitter Grid.Row="2"
-                    Height="6"
+                    Height="10"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Center"
-                    Background="Transparent"
+                    Background="#E5E5EA"
                     ResizeDirection="Rows"
                     ShowsPreview="True"
-                    Margin="0,4,0,4"/>
+                    Margin="0,6,0,6">
+        <GridSplitter.Template>
+          <ControlTemplate>
+            <Border Background="{TemplateBinding Background}">
+              <StackPanel Orientation="Horizontal"
+                          HorizontalAlignment="Center" VerticalAlignment="Center"
+                          Spacing="4">
+                <Border Width="20" Height="2" Background="#8E8E93" CornerRadius="1"/>
+                <Border Width="20" Height="2" Background="#8E8E93" CornerRadius="1"/>
+                <Border Width="20" Height="2" Background="#8E8E93" CornerRadius="1"/>
+              </StackPanel>
+            </Border>
+          </ControlTemplate>
+        </GridSplitter.Template>
+      </GridSplitter>
 
       <!-- Port scanner card (moved to right column for layout balance) -->
       <Border Grid.Row="3" Classes="card" Margin="0,4,0,0">
